@@ -7,6 +7,7 @@ export interface User {
   phone: string;
   role: UserRole;
   verified: boolean;
+  walletBalance?: number;
   createdAt: string;
 }
 

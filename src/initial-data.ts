@@ -237,6 +237,28 @@ export const INITIAL_CATEGORIES: DocumentCategory[] = [
     ],
     samplePreview: `From: Dr. Maryam Bello-Sule\nPhD Scholar, College of Medicine\n\nTo the Chief Medical Director,\nFederal Medical Centre, Abeokuta.\n\nDear Sir,\n\nAPPLICATION FOR ETHICAL CLEARANCE AND DATA ACCESS APPROVAL FOR ACADEMIC RESEARCH\n\nI wish to formally request authorization to execute an academic research at your reputable facility, titled: "Assessing Diabetic Retinopathy prevalence"... \n\nI would require access to: Anonymous demographic health databases, diabetic patient surveys. To guarantee ethical standards: Zero names will be logged...\n\nWith respect,\n\n___________________\nDr. Maryam Bello-Sule`,
     aiPromptTemplate: 'Write an elite Research Approval Request Letter for researcher {researcherName} ({researcherTitle}) seeking approval from {targetInstitution} to conduct research titled "{researchTitle}". Explicitly outline required datasets/resources: {dataRequired} and the strict ethical compliance standards: {ethicalCommitment}.'
+  },
+  {
+    id: 'lga-origin',
+    name: 'LGA State of Origin Draft',
+    description: 'Generates a highly polished, visually authentic Local Government Area (LGA) State of Origin & Indigene Attestation Reference document draft.',
+    priceNGN: 4000,
+    requiredFields: [
+      { key: 'state', label: 'State of Origin', placeholder: 'e.g., Imo State, Lagos State, Cross River State, Ondo State', type: 'text', required: true },
+      { key: 'lga', label: 'Local Government Area (LGA)', placeholder: 'e.g., Oguta, Epe, Ikom, Ondo West', type: 'text', required: true },
+      { key: 'fullName', label: 'Applicant Full Name', placeholder: 'e.g., Odebiye Aduragbemi Adekunle', type: 'text', required: true },
+      { key: 'gender', label: 'Title / Gender', placeholder: 'e.g., MR, MRS, MISS, MASTER', type: 'text', required: true },
+      { key: 'townOrVillage', label: 'Village / Town of Origin', placeholder: 'e.g., Epe Town, Oguta Village', type: 'text', required: true },
+      { key: 'autonomousCommunity', label: 'Autonomous Community (Optional)', placeholder: 'e.g., Oguta Autonomous Community', type: 'text', required: false },
+      { key: 'traditionalRuler', label: 'Traditional Ruler (Optional)', placeholder: 'e.g., His Royal Highness Eze Anthony', type: 'text', required: false },
+      { key: 'certificateNo', label: 'Certificate Reference Number', placeholder: 'e.g., IM/LO/ABJ/2063, OG-08173', type: 'text', required: true },
+      { key: 'liaisonOffice', label: 'Liaison Office Location (Optional)', placeholder: 'e.g., Imo State Liaison Office, Abuja', type: 'text', required: false },
+      { key: 'officerName', label: 'Signing Officer Name', placeholder: 'e.g., Hon. Anthony Njoku', type: 'text', required: true },
+      { key: 'officerTitle', label: 'Signing Officer Designation', placeholder: 'e.g., Liaison Officer, LGA Chairman, Secretary', type: 'text', required: true },
+      { key: 'stylePreset', label: 'Visual Certificate Style Preset', placeholder: 'Select style option', type: 'select', options: ['Imo Heartland (Green teeth border)', 'Lagos Epe Style (Tri-color banner)', 'Oguta Classic (Double green circle)', 'Cross River Ikom (Dual royal blue border)', 'Ondo East Authentic (Red seal, light watermark)'], required: true }
+    ],
+    samplePreview: `GOVERNMENT OF IMO STATE OF NIGERIA\n(EASTERN HEARTLAND)\n\nRef: IM/LO/ABJ/2063\n\nCERTIFICATE OF STATE OF ORIGIN\n\nThis is to certify that MR. ODEBIYE ADURAGBEMI ADEKUNLE hails from Oguta Village in Oguta Autonomous Community, Oguta Local Government Area of Imo State of Nigeria.\n\nThe name of his traditional ruler is His Royal Highness Eze Anthony.\n\nThis document is a formal reference issued for authentic indigeneship representation.`,
+    aiPromptTemplate: 'Generate a highly polished administrative Certificate of State of Origin Draft document. Certify that {fullName} ({gender}) hails from {townOrVillage} in {lga} Local Government Area of {state}, Nigeria. Autonomous Community is {autonomousCommunity} and Traditional Ruler is {traditionalRuler}. Reference number is {certificateNo}. Signature block issued by {officerName} ({officerTitle}). Output a structured layout with state headers and standard Nigerian legal wording.'
   }
 ];
 
@@ -258,5 +280,23 @@ export const INITIAL_RESEARCH_TEMPLATES: SampleResearchTemplate[] = [
     rawText: `NIGERIA LNG LIMITED\nPlant Site, Bonny Island, Rivers State\n\nMay 29, 2026\n\nLETTER OF DISCHARGE AND SIWES DISCHARGE CARD\n\nTo: The Coordinator, SIWES Office, University of Port Harcourt.\n\nThis is to certify that Mr. George Lawson (Matric: ENG/22/0890) has completed his Students Industrial Work Experience Scheme (SIWES) at our Operations Department.\n\nThe training ran from December 1st, 2025 to May 28th, 2026. He achieved full operations orientation and passed supervisor assessment with distinction.\n\nBest Regards,\n\nEngr. Victor Iniobong\nLead Coordinator, HR Training Division`,
     structureAnalysis: '1. Multi-national style header detailing Plant Site location.\n2. Addressed directly to Academic SIWES Office.\n3. Concise performance rating and confirmation of exact date boundaries.\n4. Industry supervisor stamp designation details.',
     createdAt: '2026-06-13T12:05:00Z'
+  },
+  {
+    id: 'sample-lga-imo',
+    categoryId: 'lga-origin',
+    title: 'Imo State Liaison Certificate Template',
+    organization: 'Imo State Liaison Office, Abuja',
+    rawText: `GOVERNMENT OF IMO STATE OF NIGERIA\n(EASTERN HEARTLAND)\n\nNo: IM/LO/ABJ/2063\n\nCERTIFICATE OF STATE OF ORIGIN\n\nThis is to certify that MR. ODEBIYE ADURAGBEMI ADEKUNLE whose photograph appears above hails from Oguta village in Oguta autonomous community in Oguta Local Government Area of Imo State of Nigeria.\n\nThe name of his/her traditional ruler is HRH Eze Anthony Njoku.\n\nThis certificate of state of origin is an official document issued by the Imo State Liaison Office and is NOT TRANSFERABLE.\n\nfor LIAISON OFFICER\nName: Hon. Anthony Njoku\nDate: October 14, 2026`,
+    structureAnalysis: '1. Government body and state details at top center with Eastern Heartland slogan.\n2. Aligned serial code and registration year.\n3. Certifying clause with details of village, autonomous community, and LGA.\n4. Traditional ruler declaration line.\n5. Official Liaison office seal, restriction statement, and officer details.',
+    createdAt: '2026-06-13T14:10:00Z'
+  },
+  {
+    id: 'sample-lga-lagos',
+    categoryId: 'lga-origin',
+    title: 'Lagos Epe LGA Origin Certificate',
+    organization: 'Epe Local Government Area, Lagos State',
+    rawText: `EPE LOCAL GOVERNMENT\nLAGOS STATE, NIGERIA\n\nOHLG No: PM/S348/NI/CS/350 Date: OCT. 14 2024\n\nCERTIFICATE OF ORIGIN\n\nThis is to certify that MR/MRS/MISS ODEBIYE ADURAGBEMI ADEKUNLE is an Indigene of Epe Town in Epe Local Government Area of Lagos State, Nigeria.\n\nYou are requested to give Him/her the necessary assistance He/She may require.\n\nName: Hon. Biodun Adesanya\nDesignation: Chairman, Epe LGA\nDate: OCT 14, 2024`,
+    structureAnalysis: '1. Two banner header layout with circular LGA crest.\n2. Unified certification text on individual line bounds.\n3. Request of assistance clause characteristic of southwestern LGA letters.\n4. Bottom alignment with red stamp reference and date markers.',
+    createdAt: '2026-06-13T14:15:00Z'
   }
 ];

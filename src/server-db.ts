@@ -50,16 +50,35 @@ export class ServerDB {
       // If categories are empty, seed them
       if (!this.data.categories || this.data.categories.length === 0) {
         this.data.categories = INITIAL_CATEGORIES;
+      } else {
+        // Merge missing initial categories
+        for (const cat of INITIAL_CATEGORIES) {
+          if (!this.data.categories.some(c => c.id === cat.id)) {
+            this.data.categories.push(cat);
+          }
+        }
       }
+      
       if (!this.data.researchTemplates || this.data.researchTemplates.length === 0) {
         this.data.researchTemplates = INITIAL_RESEARCH_TEMPLATES;
+      } else {
+        // Merge missing initial research templates
+        for (const temp of INITIAL_RESEARCH_TEMPLATES) {
+          if (!this.data.researchTemplates.some(t => t.id === temp.id)) {
+            this.data.researchTemplates.push(temp);
+          }
+        }
       }
+
       if (!this.data.systemPrompts) {
         this.data.systemPrompts = {
           systemInstruction: 'You are EduDocs AI, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
           pdfLetterheadInstructions: 'Ensure the document is structurally perfect. Output clean, gorgeous paragraphs.'
         };
       }
+      
+      // Save merged updates
+      await this.save();
     } catch (err) {
       console.log('No existing db.json found. Seeding initial database tables...');
       this.data.categories = INITIAL_CATEGORIES;
@@ -73,15 +92,17 @@ export class ServerDB {
           phone: '+234 81 2345 6789',
           role: 'admin',
           verified: true,
+          walletBalance: 10000,
           createdAt: new Date().toISOString()
         },
         {
           id: 'student-demo',
-          name: 'Amina Adebayo',
+          name: 'Al-Salam',
           email: 'student@edudocs.ai',
           phone: '+234 90 9876 5432',
           role: 'user',
           verified: true,
+          walletBalance: 2500,
           createdAt: new Date().toISOString()
         }
       ];

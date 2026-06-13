@@ -73,6 +73,7 @@ async function startServer() {
         phone,
         role: 'user',
         verified: false, // will require verification simulation
+        walletBalance: 2500, // Preloaded balance for student actions
         createdAt: new Date().toISOString()
       };
 
@@ -95,6 +96,11 @@ async function startServer() {
         return res.status(401).json({ error: 'Invalid credentials. User not found.' });
       }
 
+      if (user.walletBalance === undefined) {
+        user.walletBalance = 2500;
+        await db.saveUser(user);
+      }
+
       res.json({ user, token: user.id });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -107,6 +113,9 @@ async function startServer() {
       return res.status(401).json({ error: 'Unauthenticated.' });
     }
     user.verified = true;
+    if (user.walletBalance === undefined) {
+      user.walletBalance = 2500;
+    }
     await db.saveUser(user);
     res.json({ message: 'Email verified successfully!', user });
   });
@@ -115,6 +124,10 @@ async function startServer() {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Unauthenticated.' });
+    }
+    if (user.walletBalance === undefined) {
+      user.walletBalance = 2500;
+      await db.saveUser(user);
     }
     res.json({ user });
   });
@@ -442,6 +455,93 @@ async function startServer() {
     }
 
     res.json({ status: payment.status, payment });
+  });
+
+  // Wallet and Instant Wallet Payments API
+  app.post('/api/wallet/topup', async (req, res) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthenticated.' });
+    }
+    const { amount } = req.body;
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({ error: 'Valid amount is required.' });
+    }
+    
+    // Increment wallet balance
+    user.walletBalance = (user.walletBalance || 0) + amount;
+    await db.saveUser(user);
+
+    // Create a Payment Record for Top-up
+    const paymentRec: PaymentRecord = {
+      id: 'pay_' + Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      userName: user.name,
+      categoryId: 'topup',
+      categoryName: `Wallet Top-up ₦${amount.toLocaleString()}`,
+      amount,
+      gateway: 'monnify',
+      reference: 'TOPUP_' + Math.random().toString(36).substr(2, 10).toUpperCase(),
+      status: 'success',
+      createdAt: new Date().toISOString()
+    };
+    await db.savePayment(paymentRec);
+
+    res.json({ success: true, walletBalance: user.walletBalance, payment: paymentRec, user });
+  });
+
+  app.post('/api/payments/pay-with-wallet', async (req, res) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthenticated.' });
+    }
+
+    const { docId } = req.body;
+    if (!docId) {
+      return res.status(400).json({ error: 'Document ID is required.' });
+    }
+
+    const doc = await db.getDocumentById(docId);
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+
+    const categories = await db.getCategories();
+    const category = categories.find(c => c.id === doc.categoryId);
+    const amount = category ? category.priceNGN : 2500;
+
+    const currentBalance = user.walletBalance || 0;
+    if (currentBalance < amount) {
+      return res.status(400).json({ error: `Insufficient wallet balance. You need ₦${amount.toLocaleString()} but only have ₦${currentBalance.toLocaleString()}.` });
+    }
+
+    // Deduct from wallet
+    user.walletBalance = currentBalance - amount;
+    await db.saveUser(user);
+
+    // Create successful payment record
+    const reference = 'WL_' + Math.random().toString(36).substr(2, 10).toUpperCase();
+    const paymentRec: PaymentRecord = {
+      id: 'pay_' + Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      userName: user.name,
+      categoryId: doc.categoryId,
+      categoryName: doc.categoryName,
+      amount,
+      gateway: 'monnify',
+      reference,
+      status: 'success',
+      createdAt: new Date().toISOString()
+    };
+    await db.savePayment(paymentRec);
+
+    // Update document status
+    doc.paid = true;
+    doc.paymentGateway = 'monnify';
+    doc.paymentRef = reference;
+    await db.saveDocument(doc);
+
+    res.json({ success: true, walletBalance: user.walletBalance, document: doc, payment: paymentRec });
   });
 
   // Admin Prompt and Settings API

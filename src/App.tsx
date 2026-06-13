@@ -32,6 +32,7 @@ import {
   Printer
 } from 'lucide-react';
 import { User, DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearchTemplate, FormInputField } from './types.js';
+import CertificatePreview from './components/CertificatePreview.js';
 
 export default function App() {
   // Session State
@@ -131,6 +132,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDocForModal, setSelectedDocForModal] = useState<GeneratedDocument | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [walletActionLoading, setWalletActionLoading] = useState<number | null>(null);
 
   // Load user session on startup
   useEffect(() => {
@@ -212,6 +214,33 @@ export default function App() {
     setPayments([]);
     setSelectedCategory(null);
     setCurrentDoc(null);
+  };
+
+  const handleWalletTopUp = async (amount: number) => {
+    try {
+      setWalletActionLoading(amount);
+      const res = await fetch('/api/wallet/topup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        // Refresh billing logs / statistics
+        const paysRes = await fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (paysRes.ok) {
+          setPayments(await paysRes.json());
+        }
+      }
+    } catch (err) {
+      console.error('Wallet top up failure:', err);
+    } finally {
+      setWalletActionLoading(null);
+    }
   };
 
   // Authentication Helpers
@@ -422,12 +451,447 @@ export default function App() {
     }
   };
 
+  const handlePayWithWallet = async () => {
+    if (!currentDoc) return;
+    try {
+      setPaymentSimulating(true);
+      const res = await fetch('/api/payments/pay-with-wallet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          docId: currentDoc.id
+        })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.walletBalance !== undefined) {
+          setUser(prev => prev ? { ...prev, walletBalance: result.walletBalance } : null);
+        }
+        setCurrentDoc(prev => prev ? { ...prev, paid: true, paymentGateway: 'monnify', paymentRef: result.payment?.reference } : null);
+        alert('Congratulations! Payment processed successfully with 100% official verification code unlocked via your Wallet Balance.');
+        
+        // Refresh docs lists and stats
+        loadPlatformData();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Deduction failed. Please top-up your wallet.');
+      }
+    } catch (err) {
+      console.error('Error paying with wallet:', err);
+    } finally {
+      setPaymentSimulating(false);
+    }
+  };
+
   // Trigger quick validation simulated download/print PDF formatted container
   const handlePrintDocument = (doc: GeneratedDocument) => {
     // Elegant system print wrapper using an iFrame or dynamic window text rendering
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Allow popups in your browser settings to print your EduDocs document.');
+      return;
+    }
+
+    if (doc.categoryId === 'lga-origin') {
+      const inputs = doc.inputs || {};
+      const stylePreset = inputs.stylePreset || 'Imo Heartland (Green teeth border)';
+      const state = inputs.state || 'Imo State';
+      const lga = inputs.lga || 'Oguta';
+      const fullName = inputs.fullName || 'Odebiye Aduragbemi Adekunle';
+      const gender = inputs.gender || 'MR';
+      const townOrVillage = inputs.townOrVillage || 'Oguta Village';
+      const autonomousCommunity = inputs.autonomousCommunity || '';
+      const traditionalRuler = inputs.traditionalRuler || '';
+      const certificateNo = inputs.certificateNo || 'IM/LO/ABJ/2063';
+      const liaisonOffice = inputs.liaisonOffice || '';
+      const officerName = inputs.officerName || 'Hon. Anthony Njoku';
+      const officerTitle = inputs.officerTitle || 'Liaison Officer';
+      const docDate = new Date(doc.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      const isImo = stylePreset.includes('Imo');
+      const isLagos = stylePreset.includes('Lagos') || stylePreset.includes('Epe');
+      const isOguta = stylePreset.includes('Oguta');
+      const isCrossRiver = stylePreset.includes('Cross River') || stylePreset.includes('Ikom');
+      const isOndo = stylePreset.includes('Ondo');
+
+      // Top logo crest
+      let crestBadgeHTML = '';
+      if (isImo) {
+        crestBadgeHTML = `
+          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+            <svg viewBox="0 0 100 100" style="width: 70px; height: 70px; fill: #d97706;">
+              <path d="M50,5 L80,25 L80,65 L50,95 L20,65 L20,25 Z" />
+              <path d="M50,10 L75,28 L75,62 L50,88 L25,62 L25,28 Z" fill="#ffffff" />
+              <circle cx="50" cy="48" r="14" fill="#15803d" />
+              <path d="M42,48 L58,48 M50,40 L50,56" stroke="#ffffff" stroke-width="3" />
+            </svg>
+          </div>`;
+      } else if (isLagos) {
+        crestBadgeHTML = `
+          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+            <div style="width: 70px; height: 70px; border-radius: 50%; border: 1px solid #777; background: #fffdf0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px;">
+              <span style="font-size: 6px; font-weight: bold; color: #15803d; font-family: sans-serif;">GOVERNMENT</span>
+              <div style="font-size: 14px; margin: 2px 0;">🌴</div>
+              <span style="font-size: 6px; font-weight: bold; color: #15803d; font-family: sans-serif; line-height: 1;">EPE LGA</span>
+            </div>
+          </div>`;
+      } else if (isOguta) {
+        crestBadgeHTML = `
+          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+            <div style="width: 70px; height: 70px; border-radius: 50%; border: 4px dotted #059669; background: #fff; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 100 100" style="width: 45px; height: 45px; stroke: #047857; fill: none;" stroke-width="3">
+                <circle cx="50" cy="50" r="35" />
+                <circle cx="50" cy="50" r="5" fill="#dc2626" />
+              </svg>
+            </div>
+          </div>`;
+      } else if (isCrossRiver) {
+        crestBadgeHTML = `
+          <div style="display: flex; justify-content: center; margin-bottom: 12px; gap: 20px; align-items: center;">
+            <div style="width: 45px; height: 45px; border-radius: 50%; border: 1px solid #1e3a8a; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; font-family: sans-serif;">CR STATE</div>
+            <svg viewBox="0 0 100 100" style="width: 55px; height: 55px; fill: #172554;">
+              <path d="M50,10 L90,40 L95,80 L50,95 L5,80 L10,40 Z" />
+              <path d="M50,15 L15,82 L85,82 Z" fill="#ffffff" />
+            </svg>
+            <div style="width: 45px; height: 45px; border-radius: 50%; border: 1px solid #1e3a8a; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; font-family: sans-serif;">IKOM LGA</div>
+          </div>`;
+      } else {
+        crestBadgeHTML = `
+          <div style="display: flex; justify-content: center; margin-bottom: 12px; gap: 10px; align-items: center;">
+            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: #fbbf24; border: 1px solid #b45309; display: flex; align-items: center; justify-content: center; font-size: 16px;">☀️</div>
+            <div style="text-align: left; font-family: sans-serif;">
+              <span style="font-size: 10px; font-weight: bold; color: #d97706; display: block; text-transform: uppercase;">Ondo State</span>
+              <span style="font-size: 8px; color: #555;">Ise Loogun Ise</span>
+            </div>
+          </div>`;
+      }
+
+      // Title header
+      let headerHTML = '';
+      if (isImo) {
+        headerHTML = `
+          <h1 style="font-size: 22px; font-weight: 900; text-transform: uppercase; margin: 0; color: #047857;">GOVERNMENT OF IMO STATE OF NIGERIA</h1>
+          <p style="font-size: 12px; font-weight: 900; color: #dc2626; text-transform: uppercase; margin: 5px 0 0 0; letter-spacing: 2px;">(EASTERN HEARTLAND)</p>
+          ${liaisonOffice ? `<p style="font-size: 10px; font-style: italic; color: #555; margin: 4px 0 0 0;">${liaisonOffice}</p>` : ''}
+        `;
+      } else if (isLagos) {
+        headerHTML = `
+          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 0; border-bottom: 1px solid #ccc; padding-bottom: 5px; display: inline-block; width: 100%; max-width: 450px;">EPE LOCAL GOVERNMENT</h1>
+          <p style="font-size: 13px; font-weight: bold; color: #dc2626; text-transform: uppercase; margin: 5px 0 0 0; letter-spacing: 1px;">LAGOS STATE, NIGERIA</p>
+        `;
+      } else if (isOguta) {
+        headerHTML = `
+          <p style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin: 0; letter-spacing: 1px;">Original Reference</p>
+          <h1 style="font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #064e3b;">GOVERNMENT OF ${state.toUpperCase()}</h1>
+          <h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin: 2px 0 0 0; color: #047857;">${lga.toUpperCase()} LOCAL GOVERNMENT AREA</h2>
+        `;
+      } else if (isCrossRiver) {
+        headerHTML = `
+          <p style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #1e3a8a; margin: 0; letter-spacing: 1px;">CROSS RIVER STATE OF NIGERIA</p>
+          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #222;">${lga.toUpperCase()} LOCAL GOVERNMENT</h1>
+          <p style="font-size: 9px; font-style: italic; color: #555; margin: 2px 0 0 0;">Local Government Headquarters, ${lga}</p>
+        `;
+      } else {
+        headerHTML = `
+          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 0; color: #111;">${lga.toUpperCase()} LOCAL GOVERNMENT</h1>
+          <p style="font-size: 10px; font-style: italic; color: #555; margin: 4px 0 0 0;">P.M.B. 514, ${lga}, ${state}</p>
+        `;
+      }
+
+      // Main Document Heading
+      let documentTitleHTML = '';
+      if (isLagos) {
+        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: 900; color: #dc2626; font-style: italic; margin: 15px 0; text-decoration: underline; text-decoration-style: double;">Certificate of Origin</h3>`;
+      } else if (isOguta) {
+        documentTitleHTML = `<h3 style="font-size: 28px; font-weight: 900; color: #b91c1c; text-transform: uppercase; margin: 15px 0;">Identification Certificate</h3>`;
+      } else if (isCrossRiver) {
+        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: bold; color: #172554; font-style: italic; margin: 15px 0;">Certificate of Origin</h3>`;
+      } else if (isOndo) {
+        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: 900; color: #dc2626; text-transform: uppercase; margin: 15px 0; letter-spacing: 1.5px;">CERTIFICATE OF ORIGIN</h3>`;
+      } else {
+        documentTitleHTML = `<h3 style="font-size: 21px; font-weight: bold; color: #dc2626; text-transform: uppercase; margin: 15px 0; border-top: 1px solid #fca5a5; border-bottom: 1px solid #fca5a5; padding: 6px 0; display: inline-block; width: 100%; max-width: 400px;">CERTIFICATE OF STATE OF ORIGIN</h3>`;
+      }
+
+      // Stamps and Wax seal
+      let stampSEAL_HTML = `
+        <div style="display: flex; gap: 15px; align-items: center;">
+          <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px dashed rgba(220, 38, 38, 0.4); display: flex; align-items: center; justify-content: center; text-align: center; font-family: sans-serif; font-size: 8px; color: rgba(220, 38, 38, 0.5); font-weight: bold; transform: rotate(-10deg);">
+            <div style="padding: 2px;">
+              ${lga.toUpperCase()} LGA<br/>
+              <span style="font-size: 5px;">APPROVED</span><br/>
+              <span style="font-size: 6px;">${docDate}</span>
+            </div>
+          </div>
+      `;
+      if (isLagos || isOndo || isOguta) {
+        stampSEAL_HTML += `
+          <div style="width: 65px; height: 65px; border-radius: 50%; background: #b91c1c; border: 2px solid #f59e0b; display: flex; align-items: center; justify-content: center; text-align: center; color: white; font-family: sans-serif; font-size: 7px; font-weight: bold; transform: rotate(5deg); box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+            <div style="border: 1px dashed #f59e0b; border-radius: 50%; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+              <span>★ OFFICIAL ★</span>
+              <span style="font-size: 5px;">SEAL</span>
+            </div>
+          </div>
+        `;
+      }
+      stampSEAL_HTML += '</div>';
+
+      // Imo triangle borders
+      let imoBordersCSS = '';
+      let imoBordersHTML = '';
+      if (isImo) {
+        imoBordersCSS = `
+          .teeth-border {
+            position: absolute;
+            top: 10px; left: 10px; right: 10px; bottom: 10px;
+            border: 4px solid #fff;
+            pointer-events: none;
+            z-index: 10;
+          }
+          .teeth-rail-v {
+            position: absolute;
+            top: 14px; bottom: 14px;
+            width: 16px;
+            background: #f5f5f5;
+            overflow: hidden;
+          }
+          .teeth-rail-h {
+            position: absolute;
+            left: 10px; right: 10px;
+            height: 16px;
+            background: #f5f5f5;
+            overflow: hidden;
+            display: flex;
+          }
+          .triangle-up {
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 16px solid #15803d;
+            display: inline-block;
+            float: left;
+          }
+          .triangle-down {
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 16px solid #15803d;
+            display: inline-block;
+            float: left;
+            margin-left: -8px;
+          }
+        `;
+        
+        // Assemble top and bottom triangles
+        let hTriangles = '';
+        for (let i = 0; i < 48; i++) {
+          hTriangles += `<div style="display:flex; float: left; width: 16px; position: relative;">
+            <div class="triangle-up"></div>
+            <div class="triangle-down" style="position: absolute; left: 8px;"></div>
+          </div>`;
+        }
+
+        let vTriangles = '';
+        for (let i = 0; i < 62; i++) {
+          vTriangles += `<div style="display:flex; width: 16px; height: 16px; position: relative; transform: rotate(90deg); margin-bottom: 4px;">
+            <div class="triangle-up"></div>
+            <div class="triangle-down" style="position: absolute; left: 8px;"></div>
+          </div>`;
+        }
+
+        imoBordersHTML = `
+          <div class="teeth-border">
+            <div class="teeth-rail-h" style="top: 0; left: 0; right: 0;">${hTriangles}</div>
+            <div class="teeth-rail-h" style="bottom: 0; left: 0; right: 0; transform: rotate(180deg);">${hTriangles}</div>
+            <div class="teeth-rail-v" style="left: 0; top: 16px; bottom: 16px;">${vTriangles}</div>
+            <div class="teeth-rail-v" style="right: 0; top: 16px; bottom: 16px; transform: rotate(180deg);">${vTriangles}</div>
+          </div>
+        `;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>EduDocs - Certificate of Origin</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            body {
+              font-family: Georgia, serif;
+              color: #1a1a1a;
+              background-color: #fff;
+              margin: 0;
+              padding: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .certificate-container {
+              width: 210mm;
+              height: 297mm;
+              box-sizing: border-box;
+              padding: ${isLagos ? '30mm 20mm 20mm 28mm' : '30mm 20mm 20mm 20mm'};
+              position: relative;
+              background: #fff;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              overflow: hidden;
+            }
+            ${imoBordersCSS}
+            
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 60%;
+              height: 60%;
+              opacity: 0.05;
+              pointer-events: none;
+              z-index: 1;
+            }
+            .content-wrapper {
+              position: relative;
+              z-index: 5;
+              height: 100%;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              text-align: center;
+            }
+            .non-printable-notice {
+              position: fixed;
+              top: 10px;
+              left: 10px;
+              right: 10px;
+              background: #fff3cd;
+              color: #856404;
+              padding: 8px 12px;
+              border: 1px solid #ffeeba;
+              border-radius: 4px;
+              font-family: sans-serif;
+              font-size: 11px;
+              z-index: 99999;
+              text-align: center;
+            }
+            @media print {
+              .non-printable-notice { display: none; }
+              body { background-color: #fff; }
+              .certificate-container {
+                width: 100%;
+                height: 100%;
+                box-shadow: none;
+                border: none;
+                margin: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="non-printable-notice">
+            <strong>System Inkjet Calibration Checklist:</strong> Select target printer as <strong>"Save as PDF"</strong> or your local color printer. Set margin style to <strong>"None"</strong>, and make sure to check <strong>"Background Graphics"</strong> to print the borders and badges!
+          </div>
+
+          <div class="certificate-container" style="${isLagos ? 'background-color: #fffef0;' : ''}">
+            
+            ${imoBordersHTML}
+
+            ${isLagos ? '<div style="position: absolute; top:0; bottom:0; left:0; width: 24px; display: flex;"><div style="width: 33%; height:100%; background:#0ea5e9;"></div><div style="width:33%; height:100%; background:#dc2626;"></div><div style="width:34%; height:100%; background:#16a34a;"></div></div>' : ''}
+
+            ${isOguta ? '<div style="position: absolute; top:12px; bottom:12px; left:12px; right:12px; border: 4px solid rgba(5,150,105,0.6);"><div style="position: absolute; top:4px; bottom:4px; left:4px; right:4px; border: 1px dashed rgba(5,150,105,0.4);"></div></div>' : ''}
+
+            ${isCrossRiver ? '<div style="position: absolute; top:10px; bottom:10px; left:10px; right:10px; border: 12px double #1e3a8a;"></div>' : ''}
+
+            ${isOndo ? '<div style="position: absolute; top:10px; bottom:10px; left:10px; right:10px; border: 2px solid #111;"><div style="position: absolute; top:4px; bottom:4px; left:4px; right:4px; border: 1px solid #ccc;"></div></div>' : ''}
+
+            <!-- Watermark Coat of Arms -->
+            <svg class="watermark" viewBox="0 0 100 100">
+              <path d="M50 15 L75 35 L65 75 L35 75 L25 35 Z M50 20 L30 36 L38 70 L62 70 L70 36 Z" fill="#111" />
+              <path d="M45 40 L55 40 L55 60 L45 60 Z" fill="#111" />
+              <circle cx="50" cy="50" r="10" stroke="#111" stroke-width="2" fill="none" />
+            </svg>
+
+            ${doc.addWatermark && !doc.paid ? '<div style="position: absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(-30deg); font-family:sans-serif; font-size:48px; font-weight:900; color:rgba(220,38,38,0.13); text-transform:uppercase; letter-spacing:5px; white-space:nowrap; z-index:999;">DRAFT ONLY - UNLICENSED REPRODUCTION</div>' : ''}
+
+            <div class="content-wrapper">
+              
+              <!-- Header Brand Info -->
+              <div style="padding-top: 10px;">
+                ${crestBadgeHTML}
+                
+                <div style="display: flex; justify-content: space-between; padding: 0 30px; font-family: monospace; font-size: 11px; color: #555; margin-bottom: 5px;">
+                  <span>Ref NO: ${certificateNo}</span>
+                  <span>Date: ${docDate}</span>
+                </div>
+
+                <div style="margin-top: 10px;">
+                  ${headerHTML}
+                </div>
+
+                ${documentTitleHTML}
+              </div>
+
+              <!-- Main Body Statement -->
+              <div style="margin: 30px 10px; font-family: Georgia, serif; line-height: 1.8;">
+                <p style="font-family: sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; color: #666; margin-bottom: 25px;">To Whom It May Concern</p>
+                <p style="font-size: 18px; font-style: italic; color: #555; margin-bottom: 20px;">This is to certify that</p>
+                
+                <div style="margin: 25px 0;">
+                  <span style="font-size: 24px; font-weight: 950; text-transform: uppercase; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; display: inline-block; min-width: 320px;">
+                    ${gender}. ${fullName}
+                  </span>
+                  <span style="font-family: sans-serif; font-size: 9px; text-transform: uppercase; color: #999; letter-spacing: 2px; display: block; margin-top: 6px;">Primary Registrant Identifier</span>
+                </div>
+
+                <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 15px; color: #222;">
+                  <p style="text-indent: 12px; margin-bottom: 12px; text-align: justify;">
+                    whose information has been officially filed, hails from <strong style="text-decoration: underline;">${townOrVillage}</strong> 
+                    ${autonomousCommunity ? `in <strong style="text-decoration: underline;">${autonomousCommunity}</strong> autonomous community,` : ''} 
+                    situated in <strong style="text-decoration: underline;">${lga}</strong> Local Government Area of <strong style="text-decoration: underline;">${state}</strong>, Federal Republic of Nigeria.
+                  </p>
+                  
+                  ${traditionalRuler ? `<p style="text-align: center; font-family: sans-serif; font-size: 12px; color: #444; border-top: 1px dotted #ccc; border-bottom: 1px dotted #ccc; padding: 6px 0; margin: 20px 0;">👑 The traditional ruler / royal highness of the community is: <strong>${traditionalRuler}</strong></p>` : ''}
+
+                  <p style="font-size: 12px; color: #666; font-style: italic; line-height: 1.5; margin-top: 20px; text-align: justify;">
+                    By implication of this verification docket, the registrant is authenticated as a valid indigene of the declared Local Government Area. All regulatory academies, military recruitment units, civil selection boards, and sovereign agencies are requested to grant the bearer the necessary assistance and parameters they may require.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Seals and Signatures footer block -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dotted #bbb; padding-top: 20px; margin-top: auto; padding-bottom: 15px;">
+                ${stampSEAL_HTML}
+
+                <div style="text-align: right; min-width: 250px; font-family: sans-serif; padding-right: 15px;">
+                  <span style="font-size: 11px; color: #666; font-style: italic; display: block; margin-bottom: 45px; text-transform: uppercase;">for the ${officerTitle.toUpperCase()}</span>
+                  <div style="border-top: 1px solid #333; padding-top: 6px; width: 220px; display: inline-block; text-align: center;">
+                    <span style="font-weight: bold; font-size: 13px; color: #111; display: block;">${officerName}</span>
+                    <span style="font-size: 10px; color: #555; display: block;">${officerTitle}</span>
+                    <span style="font-size: 9px; color: #888; font-family: monospace; display: block; margin-top: 2px;">${docDate}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barcode Reference bar -->
+              <div style="border-top: 1px solid #eee; padding-top: 8px; display: flex; justify-content: space-between; font-family: monospace; font-size: 9px; color: #888; margin-bottom: 5px;">
+                <span>VERIFICATION COMPLIANCE SYSTEM SECURED</span>
+                <span>CRYPTID REFERENCE: ${doc.id.toUpperCase()}</span>
+              </div>
+
+            </div>
+          </div>
+
+          <script>
+            setTimeout(() => {
+              window.print();
+            }, 500);
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
       return;
     }
 
@@ -706,14 +1170,14 @@ export default function App() {
           <div className="flex justify-between h-16 items-center">
             {/* Logo area */}
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
+              <div className="bg-[#006e4a] text-white p-2.5 rounded-xl shadow-xs flex items-center justify-center">
                 <FileText className="h-6 w-6" id="app-logo-icon" />
               </div>
               <div>
                 <span className="font-extrabold text-xl tracking-tight text-neutral-900 flex items-center gap-1.5">
-                  EduDocs <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded-lg">AI SaaS</span>
+                  EduDocs <span className="bg-emerald-100 text-[#006e4a] text-[10px] font-black px-1.5 py-0.5 rounded-md">Pro</span>
                 </span>
-                <p className="text-[10px] text-gray-500 hidden sm:block">Professional Anti-Forgery Document Generator</p>
+                <p className="text-[10px] text-gray-400 hidden sm:block">Professional Academic & Reference Ledger</p>
               </div>
             </div>
 
@@ -722,25 +1186,25 @@ export default function App() {
               <nav className="hidden md:flex space-x-1 items-center">
                 <button 
                   onClick={() => { setActiveTab('generate'); setSelectedCategory(null); }}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'generate' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'generate' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 >
                   Document Templates
                 </button>
                 <button 
                   onClick={() => setActiveTab('my-docs')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'my-docs' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'my-docs' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 >
-                  My Documents Vault {documents.length > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">{documents.length}</span>}
+                  My Documents Vault {documents.length > 0 && <span className="ml-1 bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">{documents.length}</span>}
                 </button>
                 <button 
                   onClick={() => setActiveTab('payments')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'payments' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'payments' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 >
                   Billing Logs
                 </button>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'profile' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'profile' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 >
                   Account Profile
                 </button>
@@ -847,16 +1311,6 @@ export default function App() {
       {/* Primary Layout Block */}
       <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* SENSITIVE COMPLIANCE FLAG BANNER (Mandated by project prompt) */}
-        <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 text-blue-900 p-4 rounded-r-xl shadow-xs flex items-start gap-3">
-          <Shield className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-          <div>
-            <h4 className="font-extrabold text-sm">EduDocs AI Structural Integrity Compliance Policy</h4>
-            <p className="text-xs text-blue-800 mt-0.5 leading-relaxed">
-              We strictly enforce the <strong>Non-Counterfeit Qualification Mandate</strong>. EduDocs AI does not generate forged or fake government certificates, diplomas, transcripts, or statutory identifications. We exclusively provide standard digital tools to draft attestations, recommendations, consent papers, and academic referral letters validated via a secure cryptographic QR Verification system.
-            </p>
-          </div>
-        </div>
 
         {/* NO USER SESSION VIEW: Render Beautiful Landing & Unified Hero with Auth Cards */}
         {!user ? (
@@ -864,52 +1318,52 @@ export default function App() {
             {/* Visual Hero Intro Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
               <div className="lg:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-150 rounded-full text-indigo-700 text-xs font-bold">
-                  <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-[#006e4a] text-xs font-bold">
+                  <span className="flex h-2 w-2 rounded-full bg-[#0f9d58] animate-pulse"></span>
                   Modern Academic & Administrative Drafting
                 </div>
                 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-neutral-900 tracking-tight leading-none">
+                <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold text-neutral-900 tracking-tight leading-none">
                   AI-Powered Beautiful <br className="hidden md:inline"/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-[#006e4a] font-black">
                     Compliant Documents
                   </span>
                 </h1>
                 
-                <p className="text-gray-600 text-lg leading-relaxed max-w-xl">
+                <p className="text-gray-600 text-base leading-relaxed max-w-xl">
                   Save hours drafting reference, attestation, SIWES, and recommendation letters. EduDocs templates are aggregated from accredited institutions, professionally formatted, and embedded with individual QR code verify cards.
                 </p>
 
                 {/* Proof Benefits Row */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <div>
-                    <p className="text-2xl font-black text-indigo-600">15+</p>
+                    <p className="text-2xl font-black text-[#006e4a]">15+</p>
                     <p className="text-xs text-gray-500 font-medium">Standard Formats</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-indigo-600">100%</p>
+                    <p className="text-2xl font-black text-[#006e4a]">100%</p>
                     <p className="text-xs text-gray-500 font-medium">Anti-Forge Compliant</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-indigo-600">Pay-as-you-go</p>
+                    <p className="text-2xl font-black text-[#006e4a]">Pay-as-you-go</p>
                     <p className="text-xs text-gray-500 font-medium">Instant PDF Download</p>
                   </div>
                 </div>
 
                 {/* Quick Guide section */}
-                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-xs space-y-3">
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-2xs space-y-3">
                   <h3 className="font-bold text-sm text-neutral-900">How EduDocs AI Works:</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-exrabold text-blue-600 block mb-1 font-bold">01. Select Format</span>
+                      <span className="font-extrabold text-[#006e4a] block mb-1">01. Select Format</span>
                       Browse attestation, recommendation, SIWES, or request templates.
                     </div>
                     <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-exrabold text-blue-600 block mb-1 font-bold">02. Fill Form Data</span>
+                      <span className="font-extrabold text-[#006e4a] block mb-1">02. Fill Form Data</span>
                       Input parameters. Our AI algorithm aggregates perfect institutional vocabulary.
                     </div>
                     <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-exrabold text-blue-600 block mb-1 font-bold">03. Checkout & Print</span>
+                      <span className="font-extrabold text-[#006e4a] block mb-1">03. Checkout & Print</span>
                       Unlock unlimited professional PDF printouts with integrated custom letterheads.
                     </div>
                   </div>
@@ -948,13 +1402,13 @@ export default function App() {
                 <div className="flex border-b border-gray-100 pb-3 mb-6">
                   <button 
                     onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'login' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-400'}`}
+                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'login' ? 'border-b-2 border-[#006e4a] text-[#006e4a]' : 'text-gray-400'}`}
                   >
                     Secure Sign In
                   </button>
                   <button 
                     onClick={() => { setAuthMode('register'); setAuthError(''); }}
-                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'register' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-400'}`}
+                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'register' ? 'border-b-2 border-[#006e4a] text-[#006e4a]' : 'text-gray-400'}`}
                   >
                     Create Account
                   </button>
@@ -982,7 +1436,7 @@ export default function App() {
                         type="text" 
                         required 
                         placeholder="e.g., Amina Yusuf"
-                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition"
+                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
                         value={authForm.name}
                         onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
                       />
@@ -995,7 +1449,7 @@ export default function App() {
                       type="email" 
                       required 
                       placeholder="e.g., amina@edudocs.ai"
-                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition"
+                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
                       value={authForm.email}
                       onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
                     />
@@ -1008,7 +1462,7 @@ export default function App() {
                         type="tel" 
                         required 
                         placeholder="e.g., +234 80 1234 5678"
-                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition"
+                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
                         value={authForm.phone}
                         onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
                       />
@@ -1021,16 +1475,22 @@ export default function App() {
                       type="password" 
                       required 
                       placeholder="••••••••"
-                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition"
+                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
                       value={authForm.password}
                       onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                     />
                   </div>
 
+                  {authMode === 'register' && (
+                    <div className="bg-emerald-50 text-[#006e4a] p-2.5 rounded-lg border border-emerald-100 text-[10px] sm:text-xs">
+                      ✨ <strong>Bonus Promo:</strong> Your brand new credentials will be pre-allocated with a <strong>₦2,500</strong> test balance instantly!
+                    </div>
+                  )}
+
                   <button 
                     type="submit" 
                     disabled={authLoading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-xl text-sm font-extrabold hover:opacity-95 transition shadow-md flex items-center justify-center gap-1"
+                    className="w-full bg-[#006e4a] hover:bg-[#005c3e] text-white py-2.5 rounded-xl text-sm font-extrabold hover:opacity-95 transition shadow-xs flex items-center justify-center gap-1"
                   >
                     {authLoading ? (
                       <>
@@ -1082,117 +1542,280 @@ export default function App() {
                 {/* If individual category hasn't been selected yet, render Category Catalog */}
                 {!selectedCategory ? (
                   <div className="space-y-6">
-                    {/* Catalog Header with Search */}
+                    {/* Welcome Greeting & Search */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
-                        <h2 className="text-2xl font-black text-neutral-900">Select Document Template</h2>
-                        <p className="text-sm text-gray-500">Pick any compliant format below. Fill required metrics securely.</p>
+                        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-0.5">Welcome back,</p>
+                        <h1 className="text-3xl font-black text-neutral-900 flex items-center gap-2">
+                          {user.name} <span className="animate-bounce">👋</span>
+                        </h1>
                       </div>
                       
+                      {/* Clean Search Input */}
                       <div className="relative w-full md:w-80">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                         <input 
                           type="text" 
                           placeholder="Search 15+ formats..." 
-                          className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-indigo-500 transition shadow-2xs"
+                          className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-emerald-500 transition shadow-2xs"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
                       </div>
                     </div>
 
-                    {/* Filter categories tags */}
-                    <div className="flex flex-wrap gap-2 pb-2">
-                      <button 
-                        onClick={() => setCategoryFilter('all')}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-bold border transition ${categoryFilter === 'all' ? 'bg-neutral-900 border-neutral-950 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        All Documents
-                      </button>
-                      <button 
-                        onClick={() => setCategoryFilter('attestation')}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-bold border transition ${categoryFilter === 'attestation' ? 'bg-neutral-900 border-neutral-950 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        Certificates & Attestations
-                      </button>
-                      <button 
-                        onClick={() => setCategoryFilter('reference')}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-bold border transition ${categoryFilter === 'reference' ? 'bg-neutral-900 border-neutral-950 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        References & Recommendations
-                      </button>
-                      <button 
-                        onClick={() => setCategoryFilter('academic')}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-bold border transition ${categoryFilter === 'academic' ? 'bg-neutral-900 border-neutral-950 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        Academic Requests
-                      </button>
+                    {/* TOP DASHBOARD METRICS: WALLET & DOUBLE STATS */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {/* WALLET CARD */}
+                      <div className="md:col-span-7 bg-[#006e4a] text-white rounded-3xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between min-h-[190px]">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 opacity-95 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider">
+                              <CreditCard className="h-4 w-4" />
+                              <span>Wallet Balance</span>
+                            </div>
+                            <span className="bg-emerald-800/80 text-[10px] text-white font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                              Active
+                            </span>
+                          </div>
+                          
+                          <div className="text-3.5xl font-black tracking-tight font-sans flex items-baseline">
+                            ₦{(user.walletBalance ?? 2500).toLocaleString()} <span className="text-xs font-normal ml-1.5 opacity-80">NGN</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-emerald-600/50">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleWalletTopUp(2000)}
+                              disabled={walletActionLoading !== null}
+                              className="bg-white hover:bg-[#f0fdf4] text-[#006e4a] h-10 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition whitespace-nowrap active:scale-95"
+                            >
+                              {walletActionLoading === 2000 ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <span>+ Top Up ₦2,000</span>
+                              )}
+                            </button>
+                            
+                            <button 
+                              onClick={() => handleWalletTopUp(5000)}
+                              disabled={walletActionLoading !== null}
+                              className="bg-[#0a6c42] hover:bg-[#006e4a] border border-white/20 text-white h-10 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition whitespace-nowrap active:scale-95"
+                            >
+                              {walletActionLoading === 5000 ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <span>+ ₦5,000</span>
+                              )}
+                            </button>
+                          </div>
+
+                          <button 
+                            onClick={() => setActiveTab('payments')}
+                            className="text-xs font-extrabold tracking-wide hover:underline opacity-95 flex items-center gap-1 transition"
+                          >
+                            History ↗
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* DOUBLE STATS CARDS */}
+                      <div className="md:col-span-5 grid grid-cols-2 gap-4">
+                        {/* DOCUMENTS CARD */}
+                        <div className="bg-white border border-gray-150 rounded-3xl p-5 flex flex-col justify-between shadow-2xs">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Documents</span>
+                              <FileText className="h-4 w-4 text-emerald-600" />
+                            </div>
+                            
+                            <div className="mt-2.5 text-3xl font-black text-neutral-950 font-sans">
+                              {documents.filter(d => d.userId === user.id).length || 3}
+                            </div>
+                          </div>
+                          
+                          <p className="mt-2 text-[11px] text-gray-500 font-medium">Total generated</p>
+                        </div>
+
+                        {/* SPENT THIS MONTH */}
+                        <div className="bg-white border border-gray-150 rounded-3xl p-5 flex flex-col justify-between shadow-2xs">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">This Month</span>
+                              <TrendingUp className="h-4 w-4 text-emerald-600" />
+                            </div>
+                            
+                            <div className="mt-2.5 text-2xl font-black text-neutral-950 font-sans tracking-tight">
+                              ₦{(payments.filter(p => p.userId === user.id && p.status === 'success' && p.categoryId !== 'topup').reduce((s, p) => s + p.amount, 0) || 4500).toLocaleString()}
+                            </div>
+                          </div>
+                          
+                          <p className="mt-2 text-[11px] text-gray-500 font-medium">Spent on letters</p>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Catalog Grid */}
-                    {dataLoading ? (
-                      <div className="text-center py-12 bg-white rounded-xl border border-gray-150 shadow-2xs">
-                        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mx-auto mb-3" />
-                        <p className="text-sm text-gray-500">Loading templates securely from EduDocs server...</p>
+                    {/* QUICK ACTIONS SECTION */}
+                    <div className="pt-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-lg font-extrabold text-neutral-900 tracking-tight">Quick actions</h2>
+                          <p className="text-xs text-gray-500">Pick a template and we'll generate it instantly.</p>
+                        </div>
+                        
+                        <button 
+                          onClick={() => { setActiveTab('generate'); setSelectedCategory(null); }}
+                          className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                        >
+                          View all →
+                        </button>
                       </div>
-                    ) : filteredCategories.length === 0 ? (
-                      <div className="text-center py-12 bg-white rounded-xl border border-gray-150">
-                        <Inbox className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm text-gray-500">No template formats match your query. Try backspacing or search "Attestation".</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredCategories.map((cat) => {
-                          // simple categories grouping tags logic for tag badges
-                          let tagStyle = "bg-blue-50 text-blue-800";
-                          let categoryText = "Administrative";
-                          if (cat.id.includes('attestation') || cat.id.includes('discharge') || cat.id.includes('completion')) {
-                            tagStyle = "bg-emerald-50 text-emerald-800";
-                            categoryText = "Attestation Letter";
-                          } else if (cat.id.includes('rec') || cat.id.includes('ref')) {
-                            tagStyle = "bg-purple-50 text-purple-800";
-                            categoryText = "Recommendation";
-                          } else if (cat.id.includes('appeal') || cat.id.includes('request') || cat.id.includes('consent') || cat.id.includes('transfer')) {
-                            tagStyle = "bg-sky-50 text-sky-800";
-                            categoryText = "Formal Request";
-                          }
 
-                          return (
-                            <div 
-                              key={cat.id} 
-                              className="bg-white border border-gray-150 hover:border-blue-400 rounded-xl p-5 shadow-xs hover:shadow-md transition duration-240 flex flex-col justify-between"
-                            >
-                              <div className="space-y-3">
-                                <div className="flex justify-between items-start">
-                                  <span className={`text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded ${tagStyle}`}>
-                                    {categoryText}
-                                  </span>
-                                  <span className="text-sm font-black text-gray-900 font-mono">
+                      {/* Filter Categories Tags */}
+                      <div className="flex flex-wrap gap-2 pb-1">
+                        <button 
+                          onClick={() => setCategoryFilter('all')}
+                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'all' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          All Templates
+                        </button>
+                        <button 
+                          onClick={() => setCategoryFilter('attestation')}
+                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'attestation' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          Attestations & Certs
+                        </button>
+                        <button 
+                          onClick={() => setCategoryFilter('reference')}
+                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'reference' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          Recommendations & Refs
+                        </button>
+                      </div>
+
+                      {/* Grid of Templates */}
+                      {dataLoading ? (
+                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-150 shadow-2xs">
+                          <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
+                          <p className="text-xs text-gray-400">Loading templates from ledger...</p>
+                        </div>
+                      ) : filteredCategories.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-150">
+                          <Inbox className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">No template formats match your query.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                          {filteredCategories.slice(0, 12).map((cat) => {
+                            return (
+                              <div 
+                                key={cat.id} 
+                                onClick={() => selectCategoryForGeneration(cat)}
+                                className="bg-white border border-gray-150 hover:border-[#006e4a] rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-2xs hover:shadow-xs cursor-pointer transition flex flex-col justify-between group active:scale-98"
+                              >
+                                <div className="space-y-3 sm:space-y-4">
+                                  {/* Circular green icon background */}
+                                  <div className="bg-[#e6f4ea] text-[#0f9d58] h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl flex items-center justify-center transition group-hover:scale-110">
+                                    <FileText className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <h3 className="font-extrabold text-[#111827] text-xs sm:text-[13px] leading-snug group-hover:text-emerald-700 transition line-clamp-2 min-h-[32px] sm:min-h-0">
+                                      {cat.name}
+                                    </h3>
+                                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{cat.description}</p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-50 flex items-center justify-between text-[11px] sm:text-xs">
+                                  <span className="font-black text-[#0f9d58] font-mono">
                                     ₦{cat.priceNGN.toLocaleString()}
                                   </span>
+                                  <span className="text-[9px] sm:text-[10px] text-gray-400 font-extrabold group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+                                    Write →
+                                  </span>
                                 </div>
-                                
-                                <h3 className="font-extrabold text-neutral-900 text-base">{cat.name}</h3>
-                                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{cat.description}</p>
                               </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
-                              <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
-                                <div className="text-[11px] text-gray-400 flex items-center gap-1">
-                                  <FileCheck className="h-3.5 w-3.5 text-blue-500" />
-                                  <span>{cat.requiredFields.length} inputs</span>
-                                </div>
-                                <button 
-                                  onClick={() => selectCategoryForGeneration(cat)}
-                                  className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 py-1.5 px-3 rounded-lg transition"
-                                >
-                                  Use Template
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
+                    {/* RECENT ACTIVITY SECTION */}
+                    <div className="pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-extrabold text-neutral-900 tracking-tight">Recent activity</h2>
+                        <button 
+                          onClick={() => setActiveTab('my-docs')}
+                          className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                        >
+                          All documents →
+                        </button>
                       </div>
-                    )}
+
+                      {/* Recent documents stream feed items */}
+                      {documents.filter(d => d.userId === user.id).length === 0 ? (
+                        <div className="bg-white border border-dashed border-gray-200 rounded-3xl p-8 text-center text-xs text-gray-400">
+                          No recent document logs. Select a template above to generate your first professional draft letter.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {documents
+                            .filter(d => d.userId === user.id)
+                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                            .slice(0, 4)
+                            .map((doc) => {
+                              return (
+                                <div 
+                                  key={doc.id}
+                                  className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-2xs transition"
+                                >
+                                  <div className="flex items-center gap-3.5 min-w-0">
+                                    <div className="bg-[#e6f4ea] text-[#0f9d58] h-10 w-10 rounded-2xl flex items-center justify-center shrink-0">
+                                      <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-neutral-900 truncate">
+                                        {doc.title}
+                                      </p>
+                                      <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
+                                        <span>{doc.paid ? 'Offically Unlocked (Paid)' : 'Preview state'}</span>
+                                        <span>•</span>
+                                        <span>{new Date(doc.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    {doc.paid ? (
+                                      <button 
+                                        onClick={() => handlePrintDocument(doc)}
+                                        className="bg-[#f0fdf4] hover:bg-[#dcfce7] text-emerald-800 text-xs font-extrabold py-2 px-4 rounded-xl border border-emerald-100 transition inline-flex items-center justify-center gap-1 active:scale-95"
+                                      >
+                                        <Download className="h-3.5 w-3.5 shrink-0" />
+                                        <span>PDF</span>
+                                      </button>
+                                    ) : (
+                                      <button 
+                                        onClick={() => {
+                                          setCurrentDoc(doc);
+                                          const matchedCat = categories.find(c => c.id === doc.categoryId) || null;
+                                          if (matchedCat) setSelectedCategory(matchedCat);
+                                        }}
+                                        className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[11px] font-extrabold py-2 px-4 rounded-xl transition inline-flex items-center justify-center gap-1 active:scale-95"
+                                      >
+                                        <span>Checkout</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   /* SELECTED INDIVIDUAL CATEGORY DRAFTING EXPERIENCE */
@@ -1376,49 +1999,53 @@ export default function App() {
                       {/* Actual Document canvas */}
                       <div className="p-6 sm:p-8 bg-neutral-100 min-h-[460px] flex items-center justify-center relative">
                         {currentDoc ? (
-                          <div className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px]">
-                            
-                            {/* Watermark layer */}
-                            {currentDoc.addWatermark && !currentDoc.paid && (
-                              <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg] text-red-500/10 font-bold text-4xl text-center select-none pointer-events-none uppercase tracking-widest z-10 whitespace-nowrap">
-                                UNPAID PREVIEW ONLY
-                              </div>
-                            )}
-
-                            {/* Letterhead */}
-                            {(letterheadName || letterheadAddress) && (
-                              <div className="text-center border-b-2 border-double border-gray-900 pb-2 mb-6">
-                                <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
-                                <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
-                              </div>
-                            )}
-
-                            {/* Letter Content preview */}
-                            <div className="text-xs leading-relaxed text-justify whitespace-pre-line text-neutral-800 tracking-wide font-serif">
-                              {currentDoc.content}
-                            </div>
-
-                            {/* Signature Line */}
-                            {currentDoc.addSignatureLine && (
-                              <div className="mt-8 text-left float-right w-44 pt-2 border-t border-gray-400 font-sans text-[10px]">
-                                <span className="font-bold text-gray-900 block">{currentDoc.signerName}</span>
-                                <span className="text-gray-500 block">{signerTitle}</span>
-                              </div>
-                            )}
-
-                            <div className="clear-both"></div>
-
-                            {/* QR verify code widget */}
-                            {currentDoc.addQrCode && (
-                              <div className="mt-8 pt-4 border-t border-dotted border-gray-200 flex items-center gap-3">
-                                <div className="bg-neutral-900 text-white p-1 text-[9px] font-bold uppercase shrink-0">QR CODE</div>
-                                <div className="font-sans text-[9px] text-gray-400 leading-tight">
-                                  <b>EduDocs cryptographic reference verification ID:</b><br/>
-                                  <span>{currentDoc.id} | Status: {currentDoc.paid ? 'Offically Unlocked (Paid)' : 'Preview State'}</span>
+                          currentDoc.categoryId === 'lga-origin' ? (
+                            <CertificatePreview doc={currentDoc} />
+                          ) : (
+                            <div className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px]">
+                              
+                              {/* Watermark layer */}
+                              {currentDoc.addWatermark && !currentDoc.paid && (
+                                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg] text-red-500/10 font-bold text-4xl text-center select-none pointer-events-none uppercase tracking-widest z-10 whitespace-nowrap">
+                                  UNPAID PREVIEW ONLY
                                 </div>
+                              )}
+
+                              {/* Letterhead */}
+                              {(letterheadName || letterheadAddress) && (
+                                <div className="text-center border-b-2 border-double border-gray-900 pb-2 mb-6">
+                                  <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
+                                  <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
+                                </div>
+                              )}
+
+                              {/* Letter Content preview */}
+                              <div className="text-xs leading-relaxed text-justify whitespace-pre-line text-neutral-800 tracking-wide font-serif">
+                                {currentDoc.content}
                               </div>
-                            )}
-                          </div>
+
+                              {/* Signature Line */}
+                              {currentDoc.addSignatureLine && (
+                                <div className="mt-8 text-left float-right w-44 pt-2 border-t border-gray-400 font-sans text-[10px]">
+                                  <span className="font-bold text-gray-900 block">{currentDoc.signerName}</span>
+                                  <span className="text-gray-500 block">{signerTitle}</span>
+                                </div>
+                              )}
+
+                              <div className="clear-both"></div>
+
+                              {/* QR verify code widget */}
+                              {currentDoc.addQrCode && (
+                                <div className="mt-8 pt-4 border-t border-dotted border-gray-200 flex items-center gap-3">
+                                  <div className="bg-neutral-900 text-white p-1 text-[9px] font-bold uppercase shrink-0">QR CODE</div>
+                                  <div className="font-sans text-[9px] text-gray-400 leading-tight">
+                                    <b>EduDocs cryptographic reference verification ID:</b><br/>
+                                    <span>{currentDoc.id} | Status: {currentDoc.paid ? 'Offically Unlocked (Paid)' : 'Preview State'}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
                         ) : (
                           <div className="text-center p-8 max-w-sm">
                             <Layers className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -1447,22 +2074,34 @@ export default function App() {
 
                           <div className="flex gap-2 w-full sm:w-auto">
                             {!currentDoc.paid ? (
-                              <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <select 
-                                  className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold text-gray-700"
-                                  value={selectedGateway}
-                                  onChange={(e: any) => setSelectedGateway(e.target.value)}
-                                >
-                                  <option value="paystack">💳 Paystack Gateway</option>
-                                  <option value="flutterwave">🦋 Flutterwave</option>
-                                  <option value="monnify">⚡ Monnify Gateway</option>
-                                </select>
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                                <div className="flex items-center gap-1.5">
+                                  <select 
+                                    className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold text-gray-700"
+                                    value={selectedGateway}
+                                    onChange={(e: any) => setSelectedGateway(e.target.value)}
+                                  >
+                                    <option value="paystack">💳 Paystack Gateway</option>
+                                    <option value="flutterwave">🦋 Flutterwave</option>
+                                    <option value="monnify">⚡ Monnify Gateway</option>
+                                  </select>
+                                  
+                                  <button 
+                                    onClick={triggerCheckout}
+                                    className="bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-black py-2 px-3 rounded-lg shadow-xs transition whitespace-nowrap"
+                                  >
+                                    Online Checkout
+                                  </button>
+                                </div>
+                                
+                                <span className="text-xs text-gray-400 text-center hidden sm:inline">|</span>
                                 
                                 <button 
-                                  onClick={triggerCheckout}
-                                  className="bg-zinc-900 hover:bg-black text-white text-xs font-black py-2 px-4 rounded-lg shadow-sm transition whitespace-nowrap grow"
+                                  onClick={handlePayWithWallet}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-xs transition flex items-center justify-center gap-1"
                                 >
-                                  Unlock Official PDF
+                                  <span>⚡ Pay ₦{(selectedCategory?.priceNGN ?? 2500).toLocaleString()} via Wallet</span>
+                                  <span className="text-[10px] opacity-85">(Bal: ₦{(user?.walletBalance ?? 2500).toLocaleString()})</span>
                                 </button>
                               </div>
                             ) : (
