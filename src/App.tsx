@@ -33,6 +33,541 @@ import {
 } from 'lucide-react';
 import { User, DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearchTemplate, FormInputField } from './types.js';
 import CertificatePreview from './components/CertificatePreview.js';
+import { INITIAL_CATEGORIES, INITIAL_RESEARCH_TEMPLATES } from './initial-data.js';
+
+// Intercept API calls to support serverless/static environments like Vercel or offline testing
+const realFetch = typeof window !== 'undefined' ? window.fetch : undefined;
+
+const getLocalDB = () => {
+  if (typeof window === 'undefined') return { users: [], categories: [], documents: [], payments: [], templates: [], systemPrompts: {} };
+  
+  if (!localStorage.getItem('docmint_loaded')) {
+    localStorage.setItem('docmint_users', JSON.stringify([
+      {
+        id: 'admin-demo',
+        name: 'Chief Admin',
+        email: 'admin@edudocs.ai',
+        phone: '+234 81 2345 6789',
+        role: 'admin',
+        verified: true,
+        walletBalance: 10000,
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'student-demo',
+        name: 'Al-Salam',
+        email: 'student@edudocs.ai',
+        phone: '+234 90 9876 5432',
+        role: 'user',
+        verified: true,
+        walletBalance: 2500,
+        createdAt: new Date().toISOString()
+      }
+    ]));
+    localStorage.setItem('docmint_categories', JSON.stringify(INITIAL_CATEGORIES));
+    localStorage.setItem('docmint_templates', JSON.stringify(INITIAL_RESEARCH_TEMPLATES));
+    localStorage.setItem('docmint_documents', JSON.stringify([]));
+    localStorage.setItem('docmint_payments', JSON.stringify([]));
+    localStorage.setItem('docmint_system_prompts', JSON.stringify({
+      systemInstruction: 'You are DocMint, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
+      pdfLetterheadInstructions: 'Ensure the document is structurally perfect. Output clean, gorgeous paragraphs.'
+    }));
+    localStorage.setItem('docmint_loaded', 'true');
+  }
+
+  return {
+    users: JSON.parse(localStorage.getItem('docmint_users') || '[]'),
+    categories: JSON.parse(localStorage.getItem('docmint_categories') || '[]'),
+    documents: JSON.parse(localStorage.getItem('docmint_documents') || '[]'),
+    payments: JSON.parse(localStorage.getItem('docmint_payments') || '[]'),
+    templates: JSON.parse(localStorage.getItem('docmint_templates') || '[]'),
+    systemPrompts: JSON.parse(localStorage.getItem('docmint_system_prompts') || '{}'),
+  };
+};
+
+const saveLocalDB = (db: any) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('docmint_users', JSON.stringify(db.users));
+  localStorage.setItem('docmint_categories', JSON.stringify(db.categories));
+  localStorage.setItem('docmint_documents', JSON.stringify(db.documents));
+  localStorage.setItem('docmint_payments', JSON.stringify(db.payments));
+  localStorage.setItem('docmint_templates', JSON.stringify(db.templates));
+  localStorage.setItem('docmint_system_prompts', JSON.stringify(db.systemPrompts));
+};
+
+const simulateApiCall = async (urlStr: string, init: any): Promise<Response> => {
+  if (typeof window === 'undefined') return new Response();
+  let path = urlStr;
+  if (urlStr.startsWith('http')) {
+    try {
+      path = new URL(urlStr).pathname;
+    } catch {
+      const match = urlStr.match(/\/api\/[a-zA-Z0-9_\-\/]+/);
+      if (match) path = match[0];
+    }
+  }
+
+  const method = (init?.method || 'GET').toUpperCase();
+  const db = getLocalDB();
+  
+  const authHeader = init?.headers?.['Authorization'] || init?.headers?.['authorization'] || '';
+  let tokenUserId = '';
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    tokenUserId = authHeader.replace('Bearer ', '').trim();
+  }
+  
+  const currentUser = db.users.find((u: any) => u.id === tokenUserId);
+
+  const makeResponse = (data: any, status = 200) => {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  };
+
+  // Routing Mock
+  if (path === '/api/auth/register' && method === 'POST') {
+    const body = JSON.parse(init.body || '{}');
+    const { name, email, phone, institution, department, matricNo, userType } = body;
+    if (!name || !email || !phone) {
+      return makeResponse({ error: 'Name, Email and Phone Number are required.' }, 400);
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    if (db.users.some((u: any) => u.email.toLowerCase().trim() === cleanEmail)) {
+      return makeResponse({ error: 'A user with this email already exists.' }, 400);
+    }
+    
+    const newUser = {
+      id: 'u_' + Math.random().toString(36).substr(2, 9),
+      name,
+      email: cleanEmail,
+      phone,
+      role: 'user',
+      verified: false,
+      walletBalance: 2500,
+      createdAt: new Date().toISOString(),
+      institution: institution || '',
+      department: department || '',
+      matricNo: matricNo || '',
+      userType: userType || 'general'
+    };
+    db.users.push(newUser);
+    saveLocalDB(db);
+    return makeResponse({ user: newUser, token: newUser.id });
+  }
+
+  if (path === '/api/auth/login' && method === 'POST') {
+    const body = JSON.parse(init.body || '{}');
+    const { email } = body;
+    if (!email) {
+      return makeResponse({ error: 'Email is required.' }, 400);
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const user = db.users.find((u: any) => u.email.toLowerCase().trim() === cleanEmail);
+    if (!user) {
+      return makeResponse({ error: 'Invalid credentials. User not found.' }, 401);
+    }
+    if (user.walletBalance === undefined) {
+      user.walletBalance = 2500;
+    }
+    saveLocalDB(db);
+    return makeResponse({ user, token: user.id });
+  }
+
+  if (path === '/api/auth/verify' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    currentUser.verified = true;
+    saveLocalDB(db);
+    return makeResponse({ message: 'Email verified successfully!', user: currentUser });
+  }
+
+  if (path === '/api/auth/me' && method === 'GET') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    if (currentUser.walletBalance === undefined) {
+      currentUser.walletBalance = 2500;
+      saveLocalDB(db);
+    }
+    return makeResponse({ user: currentUser });
+  }
+
+  if (path === '/api/categories' && method === 'GET') {
+    return makeResponse(db.categories);
+  }
+
+  if (path === '/api/categories' && method === 'POST') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const body = JSON.parse(init.body || '{}');
+    if (!body.id || !body.name) {
+      return makeResponse({ error: 'Category ID and Name are required.' }, 400);
+    }
+    const idx = db.categories.findIndex((c: any) => c.id === body.id);
+    if (idx > -1) {
+      db.categories[idx] = body;
+    } else {
+      db.categories.push(body);
+    }
+    saveLocalDB(db);
+    return makeResponse(body);
+  }
+
+  if (path.startsWith('/api/categories/') && method === 'DELETE') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const id = path.split('/api/categories/')[1];
+    const initialLen = db.categories.length;
+    db.categories = db.categories.filter((c: any) => c.id !== id);
+    saveLocalDB(db);
+    return makeResponse({ success: db.categories.length !== initialLen });
+  }
+
+  if (path === '/api/research/templates' && method === 'GET') {
+    return makeResponse(db.templates);
+  }
+
+  if (path === '/api/research/templates' && method === 'POST') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const body = JSON.parse(init.body || '{}');
+    const template = {
+      id: body.id || 'tpl_' + Math.random().toString(36).substr(2, 9),
+      categoryId: body.categoryId,
+      title: body.title,
+      organization: body.organization,
+      rawText: body.rawText,
+      structureAnalysis: body.structureAnalysis,
+      createdAt: new Date().toISOString()
+    };
+    const idx = db.templates.findIndex((t: any) => t.id === template.id);
+    if (idx > -1) {
+      db.templates[idx] = template;
+    } else {
+      db.templates.push(template);
+    }
+    saveLocalDB(db);
+    return makeResponse(template);
+  }
+
+  if (path.startsWith('/api/research/templates/') && method === 'DELETE') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const id = path.split('/api/research/templates/')[1];
+    const initialLen = db.templates.length;
+    db.templates = db.templates.filter((t: any) => t.id !== id);
+    saveLocalDB(db);
+    return makeResponse({ success: db.templates.length !== initialLen });
+  }
+
+  if (path === '/api/payments/history' && method === 'GET') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    if (currentUser.role === 'admin') {
+      return makeResponse(db.payments);
+    } else {
+      return makeResponse(db.payments.filter((p: any) => p.userId === currentUser.id));
+    }
+  }
+
+  if (path === '/api/documents' && method === 'GET') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    if (currentUser.role === 'admin') {
+      return makeResponse(db.documents);
+    } else {
+      return makeResponse(db.documents.filter((d: any) => d.userId === currentUser.id));
+    }
+  }
+
+  if (path.startsWith('/api/documents/') && method === 'GET' && !path.endsWith('/generate-preview') && !path.includes('/api/documents/generate-preview')) {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const id = path.split('/api/documents/')[1];
+    const doc = db.documents.find((d: any) => d.id === id);
+    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
+    if (currentUser.role !== 'admin' && doc.userId !== currentUser.id) {
+      return makeResponse({ error: 'Unauthorized.' }, 403);
+    }
+    return makeResponse(doc);
+  }
+
+  if (path === '/api/documents/generate-preview' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const body = JSON.parse(init.body || '{}');
+    const { categoryId, inputs } = body;
+    if (!categoryId || !inputs) {
+      return makeResponse({ error: 'Category ID and inputs are required.' }, 400);
+    }
+    const category = db.categories.find((c: any) => c.id === categoryId);
+    if (!category) return makeResponse({ error: 'Category not found.' }, 404);
+
+    let text = category.samplePreview || `Dear Sir,\n\nThis is a student letter regarding ${category.name}.`;
+    for (const [key, value] of Object.entries(inputs)) {
+      const valStr = String(value);
+      const regex = new RegExp(`\\{${key}\\}`, 'gi');
+      text = text.replace(regex, valStr);
+      if (key.toLowerCase().includes('name') || key.toLowerCase().includes('student')) {
+        text = text.replace(/JOHN CHIDI OBI/gi, valStr);
+        text = text.replace(/AMINA YUSUF/gi, valStr);
+        text = text.replace(/DAVID ALAO/gi, valStr);
+        text = text.replace(/CHARLES OKAFOR/gi, valStr);
+        text = text.replace(/FATIMA IBRAHIM/gi, valStr);
+      }
+      if (key.toLowerCase().includes('church') || key.toLowerCase().includes('company')) {
+        text = text.replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, valStr);
+        text = text.replace(/CHEVRON NIGERIA LIMITED/gi, valStr);
+      }
+    }
+
+    const docId = 'doc_' + Math.random().toString(36).substr(2, 9);
+    const newDoc = {
+      id: docId,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      categoryId,
+      categoryName: category.name,
+      inputs,
+      title: category.name,
+      content: text,
+      letterheadName: body.letterheadName || '',
+      letterheadAddress: body.letterheadAddress || '',
+      letterheadLogo: body.letterheadLogo || '',
+      watermarkLogo: body.watermarkLogo || '',
+      letterheadLogoAlign: body.letterheadLogoAlign || 'center',
+      watermarkLogoAlign: body.watermarkLogoAlign || 'center',
+      letterheadTitleColor: body.letterheadTitleColor || '#111111',
+      letterheadLineColor: body.letterheadLineColor || '#111111',
+      letterheadLineStyle: body.letterheadLineStyle || 'double',
+      designPatternStyle: body.designPatternStyle || 'standard-formal',
+      letterheadTitleSize: body.letterheadTitleSize || 'md',
+      addWatermark: !!body.addWatermark,
+      addQrCode: !!body.addQrCode,
+      addSignatureLine: !!body.addSignatureLine,
+      signerName: body.signerName || '',
+      signerTitle: body.signerTitle || '',
+      paid: false,
+      createdAt: new Date().toISOString()
+    };
+
+    db.documents.push(newDoc);
+    saveLocalDB(db);
+    return makeResponse(newDoc);
+  }
+
+  if (path === '/api/payments/initialize' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const body = JSON.parse(init.body || '{}');
+    const { docId, gateway } = body;
+    if (!docId || !gateway) {
+      return makeResponse({ error: 'Document ID and Gateway are required.' }, 400);
+    }
+    const doc = db.documents.find((d: any) => d.id === docId);
+    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
+
+    const category = db.categories.find((c: any) => c.id === doc.categoryId);
+    const amount = category ? category.priceNGN : 2500;
+    const reference = 'ED_' + Math.random().toString(36).substr(2, 10).toUpperCase();
+
+    const paymentRec = {
+      id: 'pay_' + Math.random().toString(36).substr(2, 9),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      categoryId: doc.categoryId,
+      categoryName: doc.categoryName,
+      amount,
+      gateway,
+      reference,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    db.payments.push(paymentRec);
+    saveLocalDB(db);
+
+    return makeResponse({
+      paymentId: paymentRec.id,
+      amount,
+      currency: 'NGN',
+      reference,
+      gateway,
+      customerEmail: currentUser.email,
+      customerPhone: currentUser.phone
+    });
+  }
+
+  if (path === '/api/payments/verify' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const body = JSON.parse(init.body || '{}');
+    const { reference, status, docId } = body;
+    if (!reference || !status || !docId) {
+      return makeResponse({ error: 'Reference, Verification Status, and Document ID are required.' }, 400);
+    }
+    const payment = db.payments.find((p: any) => p.reference === reference);
+    if (!payment) return makeResponse({ error: 'Payment record not found.' }, 404);
+
+    payment.status = status === 'success' ? 'success' : 'failed';
+
+    if (status === 'success') {
+      const doc = db.documents.find((d: any) => d.id === docId);
+      if (doc) {
+        doc.paid = true;
+        doc.paymentGateway = payment.gateway;
+        doc.paymentRef = reference;
+      }
+    }
+
+    saveLocalDB(db);
+    return makeResponse({ status: payment.status, payment });
+  }
+
+  if (path === '/api/wallet/topup' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const body = JSON.parse(init.body || '{}');
+    const { amount } = body;
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return makeResponse({ error: 'Valid amount is required.' }, 400);
+    }
+    
+    currentUser.walletBalance = (currentUser.walletBalance || 0) + amount;
+
+    const paymentRec = {
+      id: 'pay_' + Math.random().toString(36).substr(2, 9),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      categoryId: 'topup',
+      categoryName: `Wallet Top-up ₦${amount.toLocaleString()}`,
+      amount,
+      gateway: 'monnify',
+      reference: 'TOPUP_' + Math.random().toString(36).substr(2, 10).toUpperCase(),
+      status: 'success',
+      createdAt: new Date().toISOString()
+    };
+
+    db.payments.push(paymentRec);
+    
+    const uidx = db.users.findIndex((u: any) => u.id === currentUser.id);
+    if (uidx > -1) db.users[uidx] = currentUser;
+
+    saveLocalDB(db);
+    return makeResponse({ success: true, walletBalance: currentUser.walletBalance, payment: paymentRec, user: currentUser });
+  }
+
+  if (path === '/api/payments/pay-with-wallet' && method === 'POST') {
+    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
+    const body = JSON.parse(init.body || '{}');
+    const { docId } = body;
+    if (!docId) return makeResponse({ error: 'Document ID is required.' }, 400);
+
+    const doc = db.documents.find((d: any) => d.id === docId);
+    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
+
+    const category = db.categories.find((c: any) => c.id === doc.categoryId);
+    const amount = category ? category.priceNGN : 2500;
+
+    const currentBalance = currentUser.walletBalance || 0;
+    if (currentBalance < amount) {
+      return makeResponse({ error: `Insufficient wallet balance. You need ₦${amount.toLocaleString()} but only have ₦${currentBalance.toLocaleString()}.` }, 400);
+    }
+
+    currentUser.walletBalance = currentBalance - amount;
+
+    const reference = 'WL_' + Math.random().toString(36).substr(2, 10).toUpperCase();
+    const paymentRec = {
+      id: 'pay_' + Math.random().toString(36).substr(2, 9),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      categoryId: doc.categoryId,
+      categoryName: doc.categoryName,
+      amount,
+      gateway: 'monnify',
+      reference,
+      status: 'success',
+      createdAt: new Date().toISOString()
+    };
+
+    db.payments.push(paymentRec);
+
+    doc.paid = true;
+    doc.paymentGateway = 'monnify';
+    doc.paymentRef = reference;
+
+    const uidx = db.users.findIndex((u: any) => u.id === currentUser.id);
+    if (uidx > -1) db.users[uidx] = currentUser;
+
+    saveLocalDB(db);
+    return makeResponse({ success: true, walletBalance: currentUser.walletBalance, document: doc, payment: paymentRec });
+  }
+
+  if (path === '/api/admin/prompts' && method === 'GET') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    return makeResponse(db.systemPrompts);
+  }
+
+  if (path === '/api/admin/prompts' && method === 'POST') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const body = JSON.parse(init.body || '{}');
+    db.systemPrompts = {
+      systemInstruction: body.systemInstruction,
+      pdfLetterheadInstructions: body.pdfLetterheadInstructions
+    };
+    saveLocalDB(db);
+    return makeResponse(db.systemPrompts);
+  }
+
+  if (path === '/api/admin/stats' && method === 'GET') {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return makeResponse({ error: 'Admin permissions required.' }, 403);
+    }
+    const normalUserCount = db.users.filter((u: any) => u.role === 'user').length;
+    const paidDocs = db.documents.filter((d: any) => d.paid);
+    const totalPaymentsSuccess = db.payments.filter((p: any) => p.status === 'success');
+    const totalRevenue = totalPaymentsSuccess.reduce((acc: number, p: any) => acc + p.amount, 0);
+
+    return makeResponse({
+      totalUsers: normalUserCount,
+      totalDocuments: db.documents.length,
+      paidDocuments: paidDocs.length,
+      unpaidDocuments: db.documents.length - paidDocs.length,
+      totalRevenue,
+      paymentRecordCount: db.payments.length
+    });
+  }
+
+  return makeResponse({ error: 'Mock path not found' }, 404);
+};
+
+// local custom fetch implementation shadowing global fetch for App.tsx
+const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  if (typeof window === 'undefined') {
+    return new Response();
+  }
+  let url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
+  if (url.includes('/api/')) {
+    try {
+      if (!realFetch) {
+        return await simulateApiCall(url, init);
+      }
+      const res = await realFetch(input, init);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.status === 404 || contentType.includes('text/html')) {
+        console.warn(`[DocMint Static Fallback] Endpoint ${url} is 404 or text/html. Loading mock client database instead.`);
+        return await simulateApiCall(url, init);
+      }
+      return res;
+    } catch (err) {
+      console.warn(`[DocMint Static Fallback] Endpoint ${url} failed to fetch. Loading mock client database instead.`, err);
+      return await simulateApiCall(url, init);
+    }
+  }
+  if (!realFetch) {
+    return new Response();
+  }
+  return realFetch(input, init);
+};
 
 export default function App() {
   // Session State
