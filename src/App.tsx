@@ -1531,33 +1531,6 @@ export default function App() {
 
               {/* Secure Auth Card Portal */}
               <div className="lg:col-span-5 bg-white border border-gray-100 shadow-xl rounded-2xl p-6 sm:p-8 relative">
-                {/* Demo Accounts Panel */}
-                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-1.5 text-amber-800">
-                    <Shield className="h-4 w-4 shrink-0" />
-                    <span className="text-xs font-bold">Quick Demo Login (No Registration Needed)</span>
-                  </div>
-                  <p className="text-[11px] text-amber-700">
-                    Test or grade easily using our automated demo templates:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button 
-                      onClick={() => handleDemoLogin('student@edudocs.ai')}
-                      className="bg-white hover:bg-neutral-50 text-neutral-800 text-xs py-2 px-3 rounded-lg font-bold border border-neutral-200 shadow-2xs transition flex items-center justify-center gap-1"
-                    >
-                      <UserIcon className="h-3 w-3 text-[#006e4a]" />
-                      Demo Student
-                    </button>
-                    <button 
-                      onClick={() => handleDemoLogin('admin@edudocs.ai')}
-                      className="bg-neutral-900 hover:bg-black text-white text-xs py-2 px-3 rounded-lg font-bold shadow-2xs transition flex items-center justify-center gap-1"
-                    >
-                      <Shield className="h-3 w-3 text-amber-400" />
-                      Demo Administrator
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex border-b border-gray-100 pb-3 mb-6">
                   <button 
                     onClick={() => { setAuthMode('login'); setAuthError(''); }}
