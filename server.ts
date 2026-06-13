@@ -256,6 +256,9 @@ async function startServer() {
       inputs,
       letterheadName,
       letterheadAddress,
+      letterheadLogo,
+      watermarkLogo,
+      letterheadLogoAlign,
       addWatermark,
       addQrCode,
       addSignatureLine,
@@ -274,7 +277,7 @@ async function startServer() {
     }
 
     // Prepare inputs substitution for prompt or fallback
-    let systemInstruction = 'You are EduDocs AI, a premium educational & administrative document generating engine. Do NOT generate forged academic certs or government IDs. Provide ONLY the polished letter body with placeholder address lines if none supplied.';
+    let systemInstruction = 'You are DocMint, a premium educational & administrative document generating engine. Do NOT generate forged academic certs or government IDs. Provide ONLY the polished letter body with placeholder address lines if none supplied.';
     const systemPrompts = await db.getSystemPrompts();
     if (systemPrompts?.systemInstruction) {
       systemInstruction = systemPrompts.systemInstruction;
@@ -358,6 +361,9 @@ async function startServer() {
       content: generatedContentText,
       letterheadName: letterheadName || '',
       letterheadAddress: letterheadAddress || '',
+      letterheadLogo: letterheadLogo || '',
+      watermarkLogo: watermarkLogo || '',
+      letterheadLogoAlign: letterheadLogoAlign || 'center',
       addWatermark: !!addWatermark,
       addQrCode: !!addQrCode,
       addSignatureLine: !!addSignatureLine,
@@ -589,7 +595,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`EduDocs AI Server running securely on http://localhost:${PORT}`);
+    console.log(`DocMint Server running securely on http://localhost:${PORT}`);
   });
 }
 

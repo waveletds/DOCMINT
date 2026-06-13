@@ -7,18 +7,17 @@
       "phone": "+234 81 2345 6789",
       "role": "admin",
       "verified": true,
-      "walletBalance": 10000,
       "createdAt": "2026-06-13T21:08:15.030Z"
     },
     {
       "id": "student-demo",
-      "name": "Al-Salam",
+      "name": "Amina Adebayo",
       "email": "student@edudocs.ai",
       "phone": "+234 90 9876 5432",
       "role": "user",
       "verified": true,
-      "walletBalance": 2500,
-      "createdAt": "2026-06-13T21:08:15.030Z"
+      "createdAt": "2026-06-13T21:08:15.030Z",
+      "walletBalance": 13500
     }
   ],
   "categories": [
@@ -957,8 +956,10 @@
       "addSignatureLine": true,
       "signerName": "Prof. Olayinka Adebayo",
       "signerTitle": "Dean of Student Affairs",
-      "paid": false,
-      "createdAt": "2026-06-13T21:13:00.055Z"
+      "paid": true,
+      "createdAt": "2026-06-13T21:13:00.055Z",
+      "paymentGateway": "paystack",
+      "paymentRef": "ED_H8M3V7W34V"
     },
     {
       "id": "doc_fisao3kxa",
@@ -993,6 +994,35 @@
       "createdAt": "2026-06-13T21:31:28.107Z",
       "paymentGateway": "paystack",
       "paymentRef": "ED_E7X7JJTWLW"
+    },
+    {
+      "id": "doc_uinhru3kx",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "siwes-completion",
+      "categoryName": "SIWES Completion Letter",
+      "inputs": {
+        "companyName": "Chevron Nigeria Limited",
+        "supervisorName": "Engr. Tunde Bakare",
+        "supervisorTitle": "Lead Systems Engineer",
+        "studentName": "Amina Yusuf",
+        "matricNo": "ENG/2021/045",
+        "institutionName": "Federal University of Technology, Minna",
+        "department": "Mechanical Engineering",
+        "startDate": "January 3, 2026",
+        "endDate": "June 12, 2026"
+      },
+      "title": "SIWES Completion Letter",
+      "content": "CHEVRON NIGERIA LIMITED  \n2 Chevron Drive, Lekki Peninsula,  \nP.M.B. 12825, Lagos,  \nNigeria.  \n\nJune 15, 2026  \n\nThe SIWES Coordinator,  \nDepartment of Mechanical Engineering,  \nSchool of Infrastructure, Process Engineering and Technology,  \nFederal University of Technology, Minna,  \nNiger State, Nigeria.  \n\nDear Sir/Ma,  \n\n**LETTER OF COMPLETION OF STUDENTS INDUSTRIAL WORK EXPERIENCE SCHEME (SIWES)  \nRE: AMINA YUSUF (MATRIC NO: ENG/2021/045)**  \n\nWe hereby write to certify that **Amina Yusuf**, a student of the Department of Mechanical Engineering, Federal University of Technology, Minna, with Matriculation Number **ENG/2021/045**, has successfully completed her 24-week Students Industrial Work Experience Scheme (SIWES) at Chevron Nigeria Limited. The practical internship commenced on **January 3, 2026**, and was concluded on **June 12, 2026**.  \n\nDuring the course of her attachment, she was assigned to the Systems Engineering and Assets Maintenance Division under the direct supervision of **Engr. Tunde Bakare (Lead Systems Engineer)**. Amina was fully integrated into our operations and actively participated in several high-level tasks. Her core project involvements included thermodynamic system efficiency evaluations, preventive maintenance scheduling for rotating equipment, and auxiliary pipeline network integrity analyses.   \n\nAmina demonstrated an outstanding work ethic, punctuality, and a strong commitment to our operational health, safety, and environmental (HSE) protocols. She displayed remarkable technical progress, showing a keen capability to translate theoretical engineering concepts into practical, field-level solutions. Her inquisitive nature, analytical mindset, and collaborative spirit made her an invaluable asset to the engineering team during her tenure.  \n\nOn behalf of the management and staff of Chevron Nigeria Limited, we commend her performance and believe that the hands-on experience she has acquired will prove highly beneficial to her final-year academic studies and future professional career. We wish her the very best in her academic and future endeavors.  \n\nPlease do not hesitate to contact the human resource department or the undersigned if you require further verification.  \n\nYours faithfully,  \n\n[Signature]  \n\n**Engr. Tunde Bakare**  \nLead Systems Engineer,  \nChevron Nigeria Limited.",
+      "letterheadName": "FEDERAL UNIVERSITY OF TECHNOLOGY, MINNA",
+      "letterheadAddress": "P.M.B. 65, Bosso Road, Minna, Niger State, Nigeria",
+      "addWatermark": true,
+      "addQrCode": true,
+      "addSignatureLine": true,
+      "signerName": "Prof. Olayinka Adebayo",
+      "signerTitle": "Dean of Student Affairs",
+      "paid": false,
+      "createdAt": "2026-06-13T21:56:23.742Z"
     }
   ],
   "payments": [
@@ -1007,6 +1037,66 @@
       "reference": "ED_E7X7JJTWLW",
       "status": "success",
       "createdAt": "2026-06-13T21:32:07.812Z"
+    },
+    {
+      "id": "pay_cak5kb1nb",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "lga-origin",
+      "categoryName": "LGA State of Origin Draft",
+      "amount": 4000,
+      "gateway": "paystack",
+      "reference": "ED_H8M3V7W34V",
+      "status": "success",
+      "createdAt": "2026-06-13T21:39:49.972Z"
+    },
+    {
+      "id": "pay_1jrrq8plg",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "topup",
+      "categoryName": "Wallet Top-up ₦2,000",
+      "amount": 2000,
+      "gateway": "monnify",
+      "reference": "TOPUP_L6C6QEAJ1E",
+      "status": "success",
+      "createdAt": "2026-06-13T21:51:15.473Z"
+    },
+    {
+      "id": "pay_r0704vj77",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "topup",
+      "categoryName": "Wallet Top-up ₦2,000",
+      "amount": 2000,
+      "gateway": "monnify",
+      "reference": "TOPUP_FGDCCLLH9A",
+      "status": "success",
+      "createdAt": "2026-06-13T21:51:19.429Z"
+    },
+    {
+      "id": "pay_ymhtb40at",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "topup",
+      "categoryName": "Wallet Top-up ₦2,000",
+      "amount": 2000,
+      "gateway": "monnify",
+      "reference": "TOPUP_51MTFYH1AS",
+      "status": "success",
+      "createdAt": "2026-06-13T21:51:22.051Z"
+    },
+    {
+      "id": "pay_6z6fqenmt",
+      "userId": "student-demo",
+      "userName": "Amina Adebayo",
+      "categoryId": "topup",
+      "categoryName": "Wallet Top-up ₦5,000",
+      "amount": 5000,
+      "gateway": "monnify",
+      "reference": "TOPUP_V6K81JCMV4",
+      "status": "success",
+      "createdAt": "2026-06-13T21:51:26.523Z"
     }
   ],
   "researchTemplates": [
@@ -1048,7 +1138,7 @@
     }
   ],
   "systemPrompts": {
-    "systemInstruction": "You are EduDocs AI, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.",
+    "systemInstruction": "You are DocMint, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.",
     "pdfLetterheadInstructions": "Ensure the document is structurally perfect. Output clean, gorgeous paragraphs."
   }
 }

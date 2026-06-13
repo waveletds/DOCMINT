@@ -26,7 +26,7 @@ export class ServerDB {
     payments: [],
     researchTemplates: [],
     systemPrompts: {
-      systemInstruction: 'You are EduDocs AI, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
+      systemInstruction: 'You are DocMint, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
       pdfLetterheadInstructions: 'Ensure the document is structurally perfect. Output clean, gorgeous paragraphs.'
     }
   };
@@ -72,7 +72,7 @@ export class ServerDB {
 
       if (!this.data.systemPrompts) {
         this.data.systemPrompts = {
-          systemInstruction: 'You are EduDocs AI, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
+          systemInstruction: 'You are DocMint, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
           pdfLetterheadInstructions: 'Ensure the document is structurally perfect. Output clean, gorgeous paragraphs.'
         };
       }

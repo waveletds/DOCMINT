@@ -67,6 +67,9 @@ export default function App() {
   const [generatorInputs, setGeneratorInputs] = useState<Record<string, string>>({});
   const [letterheadName, setLetterheadName] = useState('FEDERAL UNIVERSITY OF TECHNOLOGY, MINNA');
   const [letterheadAddress, setLetterheadAddress] = useState('P.M.B. 65, Bosso Road, Minna, Niger State, Nigeria');
+  const [letterheadLogo, setLetterheadLogo] = useState<string | null>(null);
+  const [watermarkLogo, setWatermarkLogo] = useState<string | null>(null);
+  const [letterheadLogoAlign, setLetterheadLogoAlign] = useState<'left' | 'right' | 'center' | 'align-text'>('center');
   const [addWatermark, setAddWatermark] = useState(true);
   const [addQrCode, setAddQrCode] = useState(true);
   const [addSignatureLine, setAddSignatureLine] = useState(true);
@@ -317,6 +320,23 @@ export default function App() {
     }
   };
 
+  // Drag and drop logo handlers
+  const handleLetterheadLogoUpload = (fileObj: File) => {
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setLetterheadLogo(uploadEvent.target?.result as string);
+    };
+    reader.readAsDataURL(fileObj);
+  };
+
+  const handleWatermarkLogoUpload = (fileObj: File) => {
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setWatermarkLogo(uploadEvent.target?.result as string);
+    };
+    reader.readAsDataURL(fileObj);
+  };
+
   // Category selection handler with initial values setup
   const selectCategoryForGeneration = (cat: DocumentCategory) => {
     setSelectedCategory(cat);
@@ -347,6 +367,9 @@ export default function App() {
         inputs: generatorInputs,
         letterheadName: letterheadName,
         letterheadAddress: letterheadAddress,
+        letterheadLogo: letterheadLogo,
+        watermarkLogo: watermarkLogo,
+        letterheadLogoAlign: letterheadLogoAlign,
         addWatermark: addWatermark,
         addQrCode: addQrCode,
         addSignatureLine: addSignatureLine,
@@ -491,7 +514,7 @@ export default function App() {
     // Elegant system print wrapper using an iFrame or dynamic window text rendering
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Allow popups in your browser settings to print your EduDocs document.');
+      alert('Allow popups in your browser settings to print your DocMint document.');
       return;
     }
 
@@ -715,7 +738,7 @@ export default function App() {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>EduDocs - Certificate of Origin</title>
+          <title>DocMint - Certificate of Origin</title>
           <style>
             @page { size: A4; margin: 10mm; }
             body {
@@ -900,27 +923,67 @@ export default function App() {
 
     // build QR and layout
     const watermarkHTML = doc.addWatermark && !doc.paid 
-      ? `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(220, 50, 50, 0.12); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">UNPAID PREVIEW - EDUDOCS AI</div>` 
-      : `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(50, 200, 50, 0.08); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">VERIFIED - EDUDOCS AI</div>`;
+      ? `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(220, 50, 50, 0.12); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">UNPAID PREVIEW - DOCMINT</div>` 
+      : `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(50, 200, 50, 0.08); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">VERIFIED - DOCMINT</div>`;
+
+    const watermarkLogoHTML = doc.watermarkLogo 
+      ? `<div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
+           <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
+         </div>`
+      : '';
 
     const qrHTML = doc.addQrCode
       ? `<div style="display: flex; gap: 10px; align-items: center; border-top: 1px dotted #ccc; padding-top: 15px; margin-top: 30px; font-size: 11px; font-family: monospace; color: #555;">
-          <div style="background: black; color: white; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid charcoal;">QR-CODE</div>
-          <div>
-            <b>OFFICIAL REFERENCE VERIFICATION:</b><br/>
-            Ref ID: ${doc.id}<br/>
-            Status: ${doc.paid ? 'Digitally Signed & Validated (Paid)' : 'PREVIEW UNPAID'}<br/>
-            Issued on: ${new Date(doc.createdAt).toLocaleDateString()}
-          </div>
+           <div style="background: black; color: white; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid charcoal;">QR-CODE</div>
+           <div>
+             <b>OFFICIAL REFERENCE VERIFICATION:</b><br/>
+             Ref ID: ${doc.id}<br/>
+             Status: ${doc.paid ? 'Digitally Signed & Validated (Paid)' : 'PREVIEW UNPAID'}<br/>
+             Issued on: ${new Date(doc.createdAt).toLocaleDateString()}
+           </div>
          </div>`
       : '';
 
-    const letterheadHTML = (doc.letterheadName || doc.letterheadAddress)
-      ? `<div style="text-align: center; border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px;">
-           <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
-           <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
-         </div>`
-      : '';
+    const logoAlign = doc.letterheadLogoAlign || 'center';
+    let letterheadHTML = '';
+    
+    if (doc.letterheadName || doc.letterheadAddress || doc.letterheadLogo) {
+      if (logoAlign === 'left') {
+        letterheadHTML = `
+          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px;">
+            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
+            <div style="flex: 1; text-align: left;">
+              <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
+              <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+            </div>
+          </div>`;
+      } else if (logoAlign === 'right') {
+        letterheadHTML = `
+          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px; justify-content: space-between;">
+            <div style="flex: 1; text-align: left;">
+              <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
+              <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+            </div>
+            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
+          </div>`;
+      } else if (logoAlign === 'align-text') {
+        letterheadHTML = `
+          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;">
+            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 45px; width: 45px; object-fit: contain;" />` : ''}
+            <div style="text-align: left;">
+              <h2 style="margin: 0; font-size: 16px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
+              <p style="margin: 2px 0 0 0; font-size: 11px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+            </div>
+          </div>`;
+      } else { // center
+        letterheadHTML = `
+          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; text-align: center;">
+            ${doc.letterheadLogo ? `<div style="display: flex; justify-content: center; margin-bottom: 8px;"><img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" /></div>` : ''}
+            <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
+            <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+          </div>`;
+      }
+    }
 
     const signatureHTML = doc.addSignatureLine
       ? `<div style="margin-top: 35px; text-align: left; float: right; width: 250px; font-family: 'Times New Roman', Times, serif;">
@@ -937,7 +1000,7 @@ export default function App() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>EduDocs AI - ${doc.title}</title>
+        <title>DocMint - ${doc.title}</title>
         <style>
           @page { size: A4; margin: 20mm; }
           body { 
@@ -977,6 +1040,7 @@ export default function App() {
             <strong>Print Instructions:</strong> Set target destinations to <strong>"Save as PDF"</strong> or your local color printer. To remove browser headers & footers, uncheck "Headers and Footers" in print options.
           </div>
           ${watermarkHTML}
+          ${watermarkLogoHTML}
           ${letterheadHTML}
           
           <div style="white-space: pre-line; min-height: 380px;">
@@ -1175,7 +1239,7 @@ export default function App() {
               </div>
               <div>
                 <span className="font-extrabold text-xl tracking-tight text-neutral-900 flex items-center gap-1.5">
-                  EduDocs <span className="bg-emerald-100 text-[#006e4a] text-[10px] font-black px-1.5 py-0.5 rounded-md">Pro</span>
+                  DocMint <span className="bg-emerald-100 text-[#006e4a] text-[10px] font-black px-1.5 py-0.5 rounded-md">Pro</span>
                 </span>
                 <p className="text-[10px] text-gray-400 hidden sm:block">Professional Academic & Reference Ledger</p>
               </div>
@@ -1331,7 +1395,7 @@ export default function App() {
                 </h1>
                 
                 <p className="text-gray-600 text-base leading-relaxed max-w-xl">
-                  Save hours drafting reference, attestation, SIWES, and recommendation letters. EduDocs templates are aggregated from accredited institutions, professionally formatted, and embedded with individual QR code verify cards.
+                  Save hours drafting reference, attestation, SIWES, and recommendation letters. DocMint templates are aggregated from accredited institutions, professionally formatted, and embedded with individual QR code verify cards.
                 </p>
 
                 {/* Proof Benefits Row */}
@@ -1352,7 +1416,7 @@ export default function App() {
 
                 {/* Quick Guide section */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-2xs space-y-3">
-                  <h3 className="font-bold text-sm text-neutral-900">How EduDocs AI Works:</h3>
+                  <h3 className="font-bold text-sm text-neutral-900">How DocMint Works:</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-neutral-50 rounded-lg">
                       <span className="font-extrabold text-[#006e4a] block mb-1">01. Select Format</span>
@@ -1909,6 +1973,126 @@ export default function App() {
                               />
                             </div>
 
+                            {/* LOGO AND WATERMARK SETTINGS */}
+                            <div className="pt-2 border-t border-dashed border-gray-150 space-y-3">
+                              <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] block">Header Logo & Watermark Logo</span>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fade-in">
+                                {/* Letterhead Logo Box */}
+                                <div className="space-y-1.5">
+                                  <label className="block text-[10px] font-bold text-neutral-500">Letterhead Logo</label>
+                                  {letterheadLogo ? (
+                                    <div className="relative border border-emerald-200 bg-emerald-50/30 p-2 rounded-xl flex items-center justify-between gap-2">
+                                      <img src={letterheadLogo} className="h-10 w-10 object-contain rounded bg-white border border-gray-200" alt="Letterhead Preview" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-gray-700 truncate">Logo Ready</p>
+                                        <button 
+                                          type="button" 
+                                          onClick={() => setLetterheadLogo(null)}
+                                          className="text-[9px] text-red-600 font-extrabold hover:underline"
+                                        >
+                                          Remove Logo
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      className="border-2 border-dashed border-gray-200 hover:border-[#006e4a] rounded-xl p-3 text-center cursor-pointer bg-neutral-50/50 hover:bg-white transition relative"
+                                      onDragOver={(e) => e.preventDefault()}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                          handleLetterheadLogoUpload(e.dataTransfer.files[0]);
+                                        }
+                                      }}
+                                      onClick={() => document.getElementById('letterhead-logo-input')?.click()}
+                                    >
+                                      <input 
+                                        type="file" 
+                                        id="letterhead-logo-input" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={(e) => {
+                                          if (e.target.files && e.target.files[0]) {
+                                            handleLetterheadLogoUpload(e.target.files[0]);
+                                          }
+                                        }}
+                                      />
+                                      <p className="text-[10px] font-black text-[#006e4a]">⚡ Drop Logo</p>
+                                      <p className="text-[8px] text-gray-400 mt-0.5">or Select file</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Watermark Logo Box */}
+                                <div className="space-y-1.5">
+                                  <label className="block text-[10px] font-bold text-neutral-500">Watermark Logo</label>
+                                  {watermarkLogo ? (
+                                    <div className="relative border border-emerald-200 bg-emerald-50/30 p-2 rounded-xl flex items-center justify-between gap-2">
+                                      <img src={watermarkLogo} className="h-10 w-10 object-contain rounded bg-white border border-gray-200" alt="Watermark Preview" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-gray-700 truncate">Watermark Ready</p>
+                                        <button 
+                                          type="button" 
+                                          onClick={() => setWatermarkLogo(null)}
+                                          className="text-[9px] text-red-600 font-extrabold hover:underline"
+                                        >
+                                          Remove Watermark
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      className="border-2 border-dashed border-gray-200 hover:border-[#006e4a] rounded-xl p-3 text-center cursor-pointer bg-neutral-50/50 hover:bg-white transition relative"
+                                      onDragOver={(e) => e.preventDefault()}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                          handleWatermarkLogoUpload(e.dataTransfer.files[0]);
+                                        }
+                                      }}
+                                      onClick={() => document.getElementById('watermark-logo-input')?.click()}
+                                    >
+                                      <input 
+                                        type="file" 
+                                        id="watermark-logo-input" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={(e) => {
+                                          if (e.target.files && e.target.files[0]) {
+                                            handleWatermarkLogoUpload(e.target.files[0]);
+                                          }
+                                        }}
+                                      />
+                                      <p className="text-[10px] font-black text-[#006e4a]">🛡️ Drop Watermark</p>
+                                      <p className="text-[8px] text-gray-400 mt-0.5">or Select file</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Logo alignment settings details */}
+                              <div>
+                                <label className="block text-[10px] font-semibold text-neutral-500 mb-1">Logo Placement / Position Alignment</label>
+                                <div className="grid grid-cols-4 gap-1">
+                                  {(['left', 'center', 'right', 'align-text'] as const).map((pos) => (
+                                    <button
+                                      key={pos}
+                                      type="button"
+                                      onClick={() => setLetterheadLogoAlign(pos)}
+                                      className={`px-1 py-1 text-[9px] font-black uppercase rounded border transition ${
+                                        letterheadLogoAlign === pos 
+                                          ? 'bg-[#006e4a] text-white border-[#006e4a]' 
+                                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {pos === 'align-text' ? 'Inline Text' : pos}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-2 pt-2">
                               <div>
                                 <label className="block text-[11px] font-bold text-neutral-600 mb-1">Official Signer Name</label>
@@ -1966,7 +2150,7 @@ export default function App() {
                           {generationLoading ? (
                             <>
                               <Loader2 className="h-4 w-4 animate-spin" />
-                              Calling EduDocs AI Engine...
+                              Calling DocMint AI Engine...
                             </>
                           ) : (
                             <>
@@ -2002,7 +2186,7 @@ export default function App() {
                           currentDoc.categoryId === 'lga-origin' ? (
                             <CertificatePreview doc={currentDoc} />
                           ) : (
-                            <div className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px]">
+                            <div className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px] z-0">
                               
                               {/* Watermark layer */}
                               {currentDoc.addWatermark && !currentDoc.paid && (
@@ -2011,11 +2195,74 @@ export default function App() {
                                 </div>
                               )}
 
+                              {/* Watermark logo image layer */}
+                              {(currentDoc.watermarkLogo || watermarkLogo) && (
+                                <div 
+                                  className="absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none"
+                                  style={{ mixBlendMode: 'multiply' }}
+                                >
+                                  <img 
+                                    src={currentDoc.watermarkLogo || watermarkLogo} 
+                                    className="w-2/3 h-2/3 object-contain" 
+                                    alt="Watermark background" 
+                                  />
+                                </div>
+                              )}
+
                               {/* Letterhead */}
-                              {(letterheadName || letterheadAddress) && (
-                                <div className="text-center border-b-2 border-double border-gray-900 pb-2 mb-6">
-                                  <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
-                                  <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
+                              {(letterheadName || letterheadAddress || currentDoc.letterheadLogo || letterheadLogo) && (
+                                <div className="border-b-2 border-double border-gray-900 pb-2 mb-6 relative z-10">
+                                  {/* Align Left layout */}
+                                  {(currentDoc.letterheadLogoAlign === 'left' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'left')) && (
+                                    <div className="flex items-center gap-4 text-left">
+                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white" alt="Logo" />
+                                      )}
+                                      <div className="flex-1">
+                                        <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
+                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Align Right layout */}
+                                  {(currentDoc.letterheadLogoAlign === 'right' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'right')) && (
+                                    <div className="flex items-center gap-4 text-left justify-between">
+                                      <div className="flex-1">
+                                        <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
+                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
+                                      </div>
+                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white" alt="Logo" />
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Align Center layout */}
+                                  {(currentDoc.letterheadLogoAlign === 'center' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'center') || (!currentDoc.letterheadLogoAlign && !letterheadLogoAlign)) && (
+                                    <div className="text-center">
+                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                        <div className="flex justify-center mb-1.5">
+                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain rounded bg-white" alt="Logo" />
+                                        </div>
+                                      )}
+                                      <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
+                                      <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
+                                    </div>
+                                  )}
+
+                                  {/* Align with Text (inline) layout */}
+                                  {(currentDoc.letterheadLogoAlign === 'align-text' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'align-text')) && (
+                                    <div className="flex items-center justify-center gap-3">
+                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-10 w-10 object-contain shrink-0 rounded bg-white" alt="Logo" />
+                                      )}
+                                      <div className="text-left">
+                                        <h4 className="text-xs font-bold uppercase tracking-tight text-neutral-900 font-serif leading-none">{letterheadName}</h4>
+                                        <p className="text-[8px] text-gray-500 font-sans tracking-wide mt-0.5">{letterheadAddress}</p>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
@@ -2039,7 +2286,7 @@ export default function App() {
                                 <div className="mt-8 pt-4 border-t border-dotted border-gray-200 flex items-center gap-3">
                                   <div className="bg-neutral-900 text-white p-1 text-[9px] font-bold uppercase shrink-0">QR CODE</div>
                                   <div className="font-sans text-[9px] text-gray-400 leading-tight">
-                                    <b>EduDocs cryptographic reference verification ID:</b><br/>
+                                    <b>DocMint cryptographic reference verification ID:</b><br/>
                                     <span>{currentDoc.id} | Status: {currentDoc.paid ? 'Offically Unlocked (Paid)' : 'Preview State'}</span>
                                   </div>
                                 </div>
@@ -2196,6 +2443,9 @@ export default function App() {
                                     setGeneratorInputs(doc.inputs);
                                     setLetterheadName(doc.letterheadName || '');
                                     setLetterheadAddress(doc.letterheadAddress || '');
+                                    setLetterheadLogo(doc.letterheadLogo || null);
+                                    setWatermarkLogo(doc.watermarkLogo || null);
+                                    setLetterheadLogoAlign(doc.letterheadLogoAlign || 'center');
                                     setAddWatermark(doc.addWatermark);
                                     setAddQrCode(doc.addQrCode);
                                     setAddSignatureLine(doc.addSignatureLine);
@@ -2351,7 +2601,7 @@ export default function App() {
                 </div>
 
                 <div className="lg:col-span-7 bg-white border border-gray-150 rounded-xl shadow-xs p-6 space-y-4">
-                  <h3 className="font-extrabold text-neutral-900">EduDocs AI Compliance Framework & Credentials Audit</h3>
+                  <h3 className="font-extrabold text-neutral-900">DocMint Compliance Framework & Credentials Audit</h3>
                   <p className="text-xs text-gray-600 leading-relaxed">
                     This compliance suite keeps a cryptographic hash of all generated documents in order to protect against fraudulent claims of academic degrees. When institutions query validation codes via the integrated QR code verification page, our server evaluates the original generated text payload to ensure zero modifications have been retrofitted by job-seekers.
                   </p>
@@ -2361,7 +2611,7 @@ export default function App() {
                       <Shield className="h-4 w-4 text-emerald-600" /> Authorized Signatories Guarantee
                     </h4>
                     <p className="text-[11px] text-gray-500 leading-relaxed">
-                      EduDocs only formats legitimate communications that conform to educational and industrial layout metrics. We do not generate signatures or authorized stamps artificially for foreign organizations.
+                      DocMint only formats legitimate communications that conform to educational and industrial layout metrics. We do not generate signatures or authorized stamps artificially for foreign organizations.
                     </p>
                   </div>
                 </div>
@@ -2929,7 +3179,7 @@ export default function App() {
             </div>
 
             <p className="text-[9px] text-center text-gray-400 leading-normal">
-              Protected by standard TLS encryption. EduDocs AI does not log your credit card credentials.
+              Protected by standard TLS encryption. DocMint does not log your credit card credentials.
             </p>
           </div>
         </div>
@@ -2938,7 +3188,7 @@ export default function App() {
       {/* Modern Compact Site Footer */}
       <footer className="bg-white border-t border-gray-150 py-6 mt-12 text-center text-xs text-gray-400">
         <div className="max-w-7xl mx-auto px-4 space-y-2">
-          <p className="font-medium text-neutral-600">EduDocs AI © 2026 Admin Portal. All rights reserved.</p>
+          <p className="font-medium text-neutral-600">DocMint © 2026 Admin Portal. All rights reserved.</p>
           <div className="flex justify-center gap-4 text-[11px] text-gray-500">
             <span>Non-Forgery Verified</span>
             <span>•</span>

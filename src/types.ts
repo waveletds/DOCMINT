@@ -42,6 +42,9 @@ export interface GeneratedDocument {
   content: string; // The generated letter body
   letterheadName?: string;
   letterheadAddress?: string;
+  letterheadLogo?: string;
+  watermarkLogo?: string;
+  letterheadLogoAlign?: 'left' | 'right' | 'center' | 'align-text';
   addWatermark: boolean;
   addQrCode: boolean;
   addSignatureLine: boolean;
