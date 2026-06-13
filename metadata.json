@@ -1,0 +1,8 @@
+{
+  "name": "EduDocs AI",
+  "description": "AI-powered educational and administrative document generation for students, graduates, job seekers, and organizations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
