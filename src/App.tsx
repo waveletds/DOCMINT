@@ -50,6 +50,10 @@ export default function App() {
     email: '',
     phone: '',
     password: '',
+    institution: '',
+    department: '',
+    matricNo: '',
+    userType: 'general' as 'student' | 'faculty' | 'organization' | 'general'
   });
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
@@ -70,6 +74,12 @@ export default function App() {
   const [letterheadLogo, setLetterheadLogo] = useState<string | null>(null);
   const [watermarkLogo, setWatermarkLogo] = useState<string | null>(null);
   const [letterheadLogoAlign, setLetterheadLogoAlign] = useState<'left' | 'right' | 'center' | 'align-text'>('center');
+  const [watermarkLogoAlign, setWatermarkLogoAlign] = useState<'left' | 'right' | 'center' | 'diagonal'>('center');
+  const [letterheadTitleColor, setLetterheadTitleColor] = useState<string>('#111111');
+  const [letterheadLineColor, setLetterheadLineColor] = useState<string>('#111111');
+  const [letterheadLineStyle, setLetterheadLineStyle] = useState<'solid' | 'double' | 'dotted' | 'none'>('double');
+  const [designPatternStyle, setDesignPatternStyle] = useState<'standard-formal' | 'modern-side' | 'classic-academy' | 'executive-tech' | 'minimalist'>('standard-formal');
+  const [letterheadTitleSize, setLetterheadTitleSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
   const [addWatermark, setAddWatermark] = useState(true);
   const [addQrCode, setAddQrCode] = useState(true);
   const [addSignatureLine, setAddSignatureLine] = useState(true);
@@ -271,7 +281,7 @@ export default function App() {
       setAuthSuccess(`Welcome, ${data.user.name}!`);
       
       // Auto register defaults
-      setAuthForm({ name: '', email: '', phone: '', password: '' });
+      setAuthForm({ name: '', email: '', phone: '', password: '', institution: '', department: '', matricNo: '', userType: 'general' });
     } catch (err: any) {
       setAuthError(err.message || 'Verification error occurred');
     } finally {
@@ -370,6 +380,12 @@ export default function App() {
         letterheadLogo: letterheadLogo,
         watermarkLogo: watermarkLogo,
         letterheadLogoAlign: letterheadLogoAlign,
+        watermarkLogoAlign: watermarkLogoAlign,
+        letterheadTitleColor: letterheadTitleColor,
+        letterheadLineColor: letterheadLineColor,
+        letterheadLineStyle: letterheadLineStyle,
+        designPatternStyle: designPatternStyle,
+        letterheadTitleSize: letterheadTitleSize,
         addWatermark: addWatermark,
         addQrCode: addQrCode,
         addSignatureLine: addSignatureLine,
@@ -926,11 +942,31 @@ export default function App() {
       ? `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(220, 50, 50, 0.12); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">UNPAID PREVIEW - DOCMINT</div>` 
       : `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(50, 200, 50, 0.08); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">VERIFIED - DOCMINT</div>`;
 
-    const watermarkLogoHTML = doc.watermarkLogo 
-      ? `<div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
-           <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
-         </div>`
-      : '';
+    let watermarkLogoHTML = '';
+    if (doc.watermarkLogo) {
+      const align = doc.watermarkLogoAlign || 'center';
+      if (align === 'left') {
+        watermarkLogoHTML = `
+          <div style="position: absolute; top: 35%; left: 40px; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
+            <img src="${doc.watermarkLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(100%);" />
+          </div>`;
+      } else if (align === 'right') {
+        watermarkLogoHTML = `
+          <div style="position: absolute; top: 35%; right: 40px; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
+            <img src="${doc.watermarkLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(100%);" />
+          </div>`;
+      } else if (align === 'diagonal') {
+        watermarkLogoHTML = `
+          <div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0; transform: rotate(-25deg);">
+            <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
+          </div>`;
+      } else { // center
+        watermarkLogoHTML = `
+          <div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
+            <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
+          </div>`;
+      }
+    }
 
     const qrHTML = doc.addQrCode
       ? `<div style="display: flex; gap: 10px; align-items: center; border-top: 1px dotted #ccc; padding-top: 15px; margin-top: 30px; font-size: 11px; font-family: monospace; color: #555;">
@@ -945,42 +981,67 @@ export default function App() {
       : '';
 
     const logoAlign = doc.letterheadLogoAlign || 'center';
+    const titleColor = doc.letterheadTitleColor || '#111111';
+    const lineColor = doc.letterheadLineColor || '#111111';
+    const lineStyle = doc.letterheadLineStyle || 'double';
+    const pattern = doc.designPatternStyle || 'standard-formal';
+    const titleSize = doc.letterheadTitleSize || 'md';
+
+    let fontSize = '20px';
+    if (titleSize === 'sm') fontSize = '14px';
+    else if (titleSize === 'md') fontSize = '20px';
+    else if (titleSize === 'lg') fontSize = '24px';
+    else if (titleSize === 'xl') fontSize = '28px';
+
+    let borderCSS = `border-bottom: 3.5px double ${lineColor};`;
+    if (lineStyle === 'none') {
+      borderCSS = 'border-bottom: none;';
+    } else if (lineStyle === 'dotted') {
+      borderCSS = `border-bottom: 2px dotted ${lineColor};`;
+    } else if (lineStyle === 'dashed') {
+      borderCSS = `border-bottom: 2px dashed ${lineColor};`;
+    } else if (lineStyle === 'solid') {
+      borderCSS = `border-bottom: 2.5px solid ${lineColor};`;
+    }
+
     let letterheadHTML = '';
-    
+    const nameStyle = `margin: 0; font-size: ${fontSize}; font-family: ${pattern === 'classic-academy' ? "Georgia, serif" : "Cambria, 'Times New Roman', serif"}; color: ${titleColor}; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.25;`;
+    const addressStyle = `margin: 5px 0 0 0; font-size: 11px; font-family: Arial, sans-serif; color: #555; leading-height: 1.4;`;
+
     if (doc.letterheadName || doc.letterheadAddress || doc.letterheadLogo) {
       if (logoAlign === 'left') {
         letterheadHTML = `
-          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px;">
+          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px;">
             ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
             <div style="flex: 1; text-align: left;">
-              <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
-              <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
+              <p style="${addressStyle}">${doc.letterheadAddress}</p>
             </div>
           </div>`;
       } else if (logoAlign === 'right') {
         letterheadHTML = `
-          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px; justify-content: space-between;">
+          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px; justify-content: space-between;">
             <div style="flex: 1; text-align: left;">
-              <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
-              <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
+              <p style="${addressStyle}">${doc.letterheadAddress}</p>
             </div>
             ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
           </div>`;
       } else if (logoAlign === 'align-text') {
         letterheadHTML = `
-          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;">
+          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;">
             ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 45px; width: 45px; object-fit: contain;" />` : ''}
             <div style="text-align: left;">
-              <h2 style="margin: 0; font-size: 16px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
-              <p style="margin: 2px 0 0 0; font-size: 11px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
+              <p style="${addressStyle}">${doc.letterheadAddress}</p>
             </div>
           </div>`;
       } else { // center
         letterheadHTML = `
-          <div style="border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 25px; text-align: center;">
+          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; text-align: center;">
             ${doc.letterheadLogo ? `<div style="display: flex; justify-content: center; margin-bottom: 8px;"><img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" /></div>` : ''}
-            <h2 style="margin: 0; font-size: 20px; font-family: Cambria, 'Times New Roman', serif; color: #111; font-weight: bold; text-transform: uppercase;">${doc.letterheadName}</h2>
-            <p style="margin: 5px 0 0 0; font-size: 12px; font-family: Arial, sans-serif; color: #555;">${doc.letterheadAddress}</p>
+            <h2 style="${nameStyle}">${doc.letterheadName}</h2>
+            <p style="${addressStyle}">${doc.letterheadAddress}</p>
           </div>`;
       }
     }
@@ -1016,6 +1077,8 @@ export default function App() {
             margin: 0 auto;
             position: relative;
             padding: 10px;
+            ${pattern === 'modern-side' ? `border-left: 6px solid ${lineColor}; padding-left: 25px;` : ''}
+            ${pattern === 'executive-tech' ? `border-top: 8px solid ${lineColor}; padding-top: 25px;` : ''}
           }
           p { margin-bottom: 15px; text-align: justify; }
           strong { font-weight: bold; }
@@ -1450,7 +1513,7 @@ export default function App() {
                       onClick={() => handleDemoLogin('student@edudocs.ai')}
                       className="bg-white hover:bg-neutral-50 text-neutral-800 text-xs py-2 px-3 rounded-lg font-bold border border-neutral-200 shadow-2xs transition flex items-center justify-center gap-1"
                     >
-                      <UserIcon className="h-3 w-3 text-indigo-600" />
+                      <UserIcon className="h-3 w-3 text-[#006e4a]" />
                       Demo Student
                     </button>
                     <button 
@@ -1494,56 +1557,129 @@ export default function App() {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                   {authMode === 'register' && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
-                      <input 
-                        type="text" 
-                        required 
-                        placeholder="e.g., Amina Yusuf"
-                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                        value={authForm.name}
-                        onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="e.g., Amina Yusuf"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.name}
+                          onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">User Type / Affiliation</label>
+                        <select
+                          required
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.userType}
+                          onChange={(e) => setAuthForm({ ...authForm, userType: e.target.value as any })}
+                        >
+                          <option value="student">🎓 Student / Scholar</option>
+                          <option value="faculty">🏫 Faculty / Academic Staff</option>
+                          <option value="organization">🏢 Institution / Agency</option>
+                          <option value="general">💼 General Professional</option>
+                        </select>
+                      </div>
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
-                    <input 
-                      type="email" 
-                      required 
-                      placeholder="e.g., amina@edudocs.ai"
-                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                      value={authForm.email}
-                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                    />
+                  <div className={authMode === 'register' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-4'}>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
+                      <input 
+                        type="email" 
+                        required 
+                        placeholder="e.g., amina@edudocs.ai"
+                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                        value={authForm.email}
+                        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      />
+                    </div>
+
+                    {authMode === 'register' ? (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                        <input 
+                          type="tel" 
+                          required 
+                          placeholder="e.g., +234 80 1234 5678"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.phone}
+                          onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Secret Password</label>
+                        <input 
+                          type="password" 
+                          required 
+                          placeholder="••••••••"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.password}
+                          onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {authMode === 'register' && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
-                      <input 
-                        type="tel" 
-                        required 
-                        placeholder="e.g., +234 80 1234 5678"
-                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                        value={authForm.phone}
-                        onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-bold">Institution / Campus Name</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="e.g., University of Lagos"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.institution}
+                          onChange={(e) => setAuthForm({ ...authForm, institution: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Department / Desk</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g., Computer Science"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.department}
+                          onChange={(e) => setAuthForm({ ...authForm, department: e.target.value })}
+                        />
+                      </div>
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Secret Password</label>
-                    <input 
-                      type="password" 
-                      required 
-                      placeholder="••••••••"
-                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                      value={authForm.password}
-                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                    />
-                  </div>
+                  {authMode === 'register' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">ID / Matric / Serial No.</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g., FSS/2026/0892"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.matricNo}
+                          onChange={(e) => setAuthForm({ ...authForm, matricNo: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Secret Password</label>
+                        <input 
+                          type="password" 
+                          required 
+                          placeholder="••••••••"
+                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
+                          value={authForm.password}
+                          onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {authMode === 'register' && (
                     <div className="bg-emerald-50 text-[#006e4a] p-2.5 rounded-lg border border-emerald-100 text-[10px] sm:text-xs">
@@ -1928,7 +2064,7 @@ export default function App() {
                                 <textarea
                                   required={field.required}
                                   placeholder={field.placeholder}
-                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500 transition min-h-[60px]"
+                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition min-h-[60px]"
                                   value={generatorInputs[field.key] || ''}
                                   onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
                                 />
@@ -1937,7 +2073,7 @@ export default function App() {
                                   type="text"
                                   required={field.required}
                                   placeholder={field.placeholder}
-                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500 transition"
+                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition"
                                   value={generatorInputs[field.key] || ''}
                                   onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
                                 />
@@ -1956,7 +2092,7 @@ export default function App() {
                               <input 
                                 type="text" 
                                 placeholder="e.g., FEDERAL UNIVERSITY OF TECHNOLOGY"
-                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                                 value={letterheadName}
                                 onChange={(e) => setLetterheadName(e.target.value)}
                               />
@@ -1967,7 +2103,7 @@ export default function App() {
                               <input 
                                 type="text" 
                                 placeholder="e.g., P.M.B. 65, Bosso Road, Minna..."
-                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                                 value={letterheadAddress}
                                 onChange={(e) => setLetterheadAddress(e.target.value)}
                               />
@@ -2091,6 +2227,284 @@ export default function App() {
                                   ))}
                                 </div>
                               </div>
+
+                              {/* Watermark logo alignment settings details */}
+                              <div>
+                                <label className="block text-[10px] font-semibold text-neutral-500 mb-1">Watermark Placement / Position Alignment</label>
+                                <div className="grid grid-cols-4 gap-1">
+                                  {(['left', 'center', 'right', 'diagonal'] as const).map((pos) => (
+                                    <button
+                                      key={pos}
+                                      type="button"
+                                      onClick={() => setWatermarkLogoAlign(pos)}
+                                      className={`px-1 py-1 text-[9px] font-black uppercase rounded border transition ${
+                                        watermarkLogoAlign === pos 
+                                          ? 'bg-[#006e4a] text-white border-[#006e4a]' 
+                                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {pos}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* DESIGN WORK DESIGN PATTERN SELECTOR WITH VISUAL PREVIEWS */}
+                              <div className="pt-3 border-t border-dashed border-gray-150 space-y-2">
+                                <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] block font-bold">
+                                  Select Design Work Pattern
+                                </span>
+                                <p className="text-[9px] text-gray-400">Choose a professional pre-designed administrative pattern structure.</p>
+                                
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {[
+                                    {
+                                      id: 'standard-formal',
+                                      name: 'Standard Formal',
+                                      desc: 'Elegant Serif / Royal double lines',
+                                      logoAlign: 'center',
+                                      lineStyle: 'double',
+                                      titleSize: 'md',
+                                      titleColor: '#111111',
+                                      lineColor: '#111111',
+                                      preview: (
+                                        <div className="space-y-1 py-1">
+                                          <div className="h-1.5 w-1/4 bg-neutral-300 rounded mx-auto" />
+                                          <div className="h-1 w-2/3 bg-[#111111] rounded mx-auto" />
+                                          <div className="h-[2px] bg-[#111111] w-full mt-1 border-b border-t border-[#111111]" />
+                                        </div>
+                                      )
+                                    },
+                                    {
+                                      id: 'modern-side',
+                                      name: 'Modern Sideband',
+                                      desc: 'Left accent colored border & clean sans',
+                                      logoAlign: 'left',
+                                      lineStyle: 'solid',
+                                      titleSize: 'lg',
+                                      titleColor: '#006e4a',
+                                      lineColor: '#006e4a',
+                                      preview: (
+                                        <div className="flex gap-2.5 items-center py-1">
+                                          <div className="w-[3px] bg-[#006e4a] h-6 rounded" />
+                                          <div className="space-y-0.5 flex-1">
+                                            <div className="h-1 bg-[#006e4a] w-3/4 rounded" />
+                                            <div className="h-1 bg-neutral-300 w-1/2 rounded" />
+                                          </div>
+                                        </div>
+                                      )
+                                    },
+                                    {
+                                      id: 'classic-academy',
+                                      name: 'Classic Academy',
+                                      desc: 'Old school serif, royal burgundy text',
+                                      logoAlign: 'center',
+                                      lineStyle: 'solid',
+                                      titleSize: 'md',
+                                      titleColor: '#800020',
+                                      lineColor: '#800020',
+                                      preview: (
+                                        <div className="space-y-1 py-1 text-center">
+                                          <div className="w-2 h-2 bg-[#800020] rotate-45 rounded-xs mx-auto" />
+                                          <div className="h-1 w-3/4 bg-[#800020] rounded mx-auto mt-0.5" />
+                                          <div className="h-[1px] bg-[#800020] w-full" />
+                                        </div>
+                                      )
+                                    },
+                                    {
+                                      id: 'executive-tech',
+                                      name: 'Executive Tech',
+                                      desc: 'Top thick accent block & clean mono',
+                                      logoAlign: 'align-text',
+                                      lineStyle: 'solid',
+                                      titleSize: 'sm',
+                                      titleColor: '#003366',
+                                      lineColor: '#003366',
+                                      preview: (
+                                        <div className="space-y-1 py-1">
+                                          <div className="h-1 bg-[#003366] w-full -mt-1 rounded-t-xs" />
+                                          <div className="flex gap-1 items-center">
+                                            <div className="h-1.5 w-1.5 bg-[#003366] rounded-full" />
+                                            <div className="h-1 w-1/2 bg-[#003366] rounded" />
+                                          </div>
+                                        </div>
+                                      )
+                                    },
+                                    {
+                                      id: 'minimalist',
+                                      name: 'Artistic Minimal',
+                                      desc: 'Clean compact space, thin dotted divider',
+                                      logoAlign: 'center',
+                                      lineStyle: 'dotted',
+                                      titleSize: 'sm',
+                                      titleColor: '#2d3748',
+                                      lineColor: '#718096',
+                                      preview: (
+                                        <div className="space-y-1 py-1 text-center font-sans">
+                                          <div className="h-[3px] w-1/3 bg-neutral-800 rounded mx-auto" />
+                                          <div className="border-t border-dotted border-gray-400 w-2/3 mx-auto mt-1" />
+                                        </div>
+                                      )
+                                    }
+                                  ].map((pat) => (
+                                    <button
+                                      key={pat.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setDesignPatternStyle(pat.id);
+                                        setLetterheadLogoAlign(pat.logoAlign);
+                                        setLetterheadLineStyle(pat.lineStyle);
+                                        setLetterheadTitleSize(pat.titleSize);
+                                        setLetterheadTitleColor(pat.titleColor);
+                                        setLetterheadLineColor(pat.lineColor);
+                                      }}
+                                      className={`p-1.5 rounded-xl text-left border flex flex-col justify-between h-[100px] transition group hover:shadow-xs ${
+                                        designPatternStyle === pat.id 
+                                          ? 'border-[#006e4a] bg-emerald-50/25 ring-2 ring-emerald-500/10' 
+                                          : 'border-gray-200 bg-white hover:border-gray-300'
+                                      }`}
+                                    >
+                                      <div>
+                                        <div className="font-extrabold text-[9px] text-neutral-800 leading-tight group-hover:text-neutral-900">{pat.name}</div>
+                                        <div className="text-[7.5px] text-gray-400 line-clamp-1 mt-0.5 leading-snug">{pat.desc}</div>
+                                      </div>
+                                      <div className="bg-neutral-50 rounded-lg p-1 border border-neutral-100 w-full mt-1.5 overflow-hidden">
+                                        {pat.preview}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* STYLISTIC ACCESS FOR CUSTOM DESIGN */}
+                              <div className="pt-3 border-t border-dashed border-gray-150 space-y-3 bg-neutral-50/50 p-2.5 rounded-xl">
+                                <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] flex items-center justify-between font-bold">
+                                  <span>⚙️ Access For Custom Design</span>
+                                  <span className="text-[7px] font-normal text-gray-500 capitalize leading-none">Custom Style Options</span>
+                                </span>
+                                
+                                <div className="space-y-2.5">
+                                  {/* Letterhead Title Color */}
+                                  <div>
+                                    <label className="block text-[9px] font-bold text-neutral-500 mb-0.5">Letterhead Title Color</label>
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      {[
+                                        { value: '#111111', label: 'Black' },
+                                        { value: '#003366', label: 'Navy' },
+                                        { value: '#006e4a', label: 'Emerald' },
+                                        { value: '#800020', label: 'Burgundy' },
+                                        { value: '#9a7b56', label: 'Sovereign' },
+                                        { value: '#553c9a', label: 'Royal' }
+                                      ].map((col) => (
+                                        <button
+                                          key={col.value}
+                                          type="button"
+                                          title={col.label}
+                                          onClick={() => setLetterheadTitleColor(col.value)}
+                                          className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                                            letterheadTitleColor === col.value 
+                                              ? 'border-neutral-950 ring-2 ring-emerald-300 scale-110' 
+                                              : 'border-transparent hover:scale-105'
+                                          }`}
+                                          style={{ backgroundColor: col.value }}
+                                        >
+                                          {letterheadTitleColor === col.value && (
+                                            <div className="w-1 h-1 bg-white rounded-full" />
+                                          )}
+                                        </button>
+                                      ))}
+                                      {/* Custom Input */}
+                                      <input 
+                                        type="text"
+                                        placeholder="#000"
+                                        className="text-[8px] font-mono bg-white border border-gray-200 rounded px-1 w-14 outline-none focus:border-[#006e4a]"
+                                        value={letterheadTitleColor}
+                                        onChange={(e) => setLetterheadTitleColor(e.target.value)}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Divider Line Color */}
+                                  <div>
+                                    <label className="block text-[9px] font-bold text-neutral-500 mb-0.5">Divider Line Color</label>
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      {[
+                                        { value: '#111111', label: 'Black' },
+                                        { value: '#003366', label: 'Navy' },
+                                        { value: '#006e4a', label: 'Emerald' },
+                                        { value: '#800020', label: 'Burgundy' },
+                                        { value: '#cccccc', label: 'Light Gray' }
+                                      ].map((col) => (
+                                        <button
+                                          key={col.value}
+                                          type="button"
+                                          title={col.label}
+                                          onClick={() => setLetterheadLineColor(col.value)}
+                                          className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                                            letterheadLineColor === col.value 
+                                              ? 'border-neutral-950 ring-2 ring-emerald-300 scale-110' 
+                                              : 'border-transparent hover:scale-105'
+                                          }`}
+                                          style={{ backgroundColor: col.value }}
+                                        >
+                                          {letterheadLineColor === col.value && (
+                                            <div className="w-1 h-1 bg-white rounded-full" />
+                                          )}
+                                        </button>
+                                      ))}
+                                      {/* Match Title Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => setLetterheadLineColor(letterheadTitleColor)}
+                                        className="text-[7.5px] bg-[#006e4a]/10 text-[#006e4a] hover:bg-[#006e4a]/25 px-1 rounded font-black uppercase tracking-normal"
+                                      >
+                                        Match Title
+                                      </button>
+                                      {/* Custom Line Input */}
+                                      <input 
+                                        type="text"
+                                        placeholder="#000"
+                                        className="text-[8px] font-mono bg-white border border-gray-200 rounded px-1 w-14 outline-none focus:border-[#006e4a]"
+                                        value={letterheadLineColor}
+                                        onChange={(e) => setLetterheadLineColor(e.target.value)}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                                    {/* Line Style Selection */}
+                                    <div>
+                                      <label className="block text-[9px] font-semibold text-neutral-500 mb-0.5">Divider Style</label>
+                                      <select 
+                                        className="w-full bg-white border border-gray-150 rounded px-1 py-0.5 text-[10px] outline-none focus:border-[#006e4a]"
+                                        value={letterheadLineStyle}
+                                        onChange={(e) => setLetterheadLineStyle(e.target.value as any)}
+                                      >
+                                        <option value="double">Double Rule</option>
+                                        <option value="solid">Solid Thick</option>
+                                        <option value="dotted">Dotted</option>
+                                        <option value="dashed">Dashed</option>
+                                        <option value="none">No Line</option>
+                                      </select>
+                                    </div>
+
+                                    {/* Font Size Selection */}
+                                    <div>
+                                      <label className="block text-[9px] font-semibold text-neutral-500 mb-0.5">Title Size</label>
+                                      <select 
+                                        className="w-full bg-white border border-gray-150 rounded px-1 py-0.5 text-[10px] outline-none focus:border-[#006e4a]"
+                                        value={letterheadTitleSize}
+                                        onChange={(e) => setLetterheadTitleSize(e.target.value as any)}
+                                      >
+                                        <option value="sm">Small (11px)</option>
+                                        <option value="md">Normal (14px)</option>
+                                        <option value="lg">Large (16px)</option>
+                                        <option value="xl">Extra (18px)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 pt-2">
@@ -2099,7 +2513,7 @@ export default function App() {
                                 <input 
                                   type="text" 
                                   placeholder="e.g., Prof. Sarah Alabi"
-                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                                   value={signerName}
                                   onChange={(e) => setSignerName(e.target.value)}
                                 />
@@ -2107,7 +2521,7 @@ export default function App() {
                               <div>
                                 <label className="block text-[11px] font-bold text-neutral-600 mb-1">Status watermark</label>
                                 <select 
-                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                                   value={addWatermark ? 'yes' : 'no'}
                                   onChange={(e) => setAddWatermark(e.target.value === 'yes')}
                                 >
@@ -2123,7 +2537,7 @@ export default function App() {
                                   type="checkbox" 
                                   checked={addQrCode}
                                   onChange={(e) => setAddQrCode(e.target.checked)}
-                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                  className="rounded text-[#006e4a] focus:ring-[#006e4a] h-3.5 w-3.5"
                                 />
                                 Add QR Verify Code
                               </label>
@@ -2133,7 +2547,7 @@ export default function App() {
                                   type="checkbox" 
                                   checked={addSignatureLine}
                                   onChange={(e) => setAddSignatureLine(e.target.checked)}
-                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                  className="rounded text-[#006e4a] focus:ring-[#006e4a] h-3.5 w-3.5"
                                 />
                                 Add Signature Placeholder
                               </label>
@@ -2145,7 +2559,7 @@ export default function App() {
                         <button 
                           type="submit" 
                           disabled={generationLoading}
-                          className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-xl text-xs font-bold leading-none shadow-sm flex items-center justify-center gap-1"
+                          className="w-full mt-4 bg-[#006e4a] hover:bg-[#005c3e] text-white py-2 px-4 rounded-xl text-xs font-bold leading-none shadow-sm flex items-center justify-center gap-1"
                         >
                           {generationLoading ? (
                             <>
@@ -2165,7 +2579,7 @@ export default function App() {
                     <div className="lg:col-span-7 bg-white border border-gray-150 rounded-xl shadow-xs overflow-hidden">
                       <div className="px-5 py-4 bg-neutral-50 border-b border-gray-150 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping"></span>
+                          <span className="h-2 w-2 rounded-full bg-[#006e4a] animate-ping"></span>
                           <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Live Document Preview Layer</span>
                         </div>
                         {currentDoc && !currentDoc.paid && (
@@ -2186,7 +2600,16 @@ export default function App() {
                           currentDoc.categoryId === 'lga-origin' ? (
                             <CertificatePreview doc={currentDoc} />
                           ) : (
-                            <div className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px] z-0">
+                            <div 
+                              className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px] z-0"
+                              style={{
+                                borderLeft: (currentDoc.designPatternStyle || designPatternStyle) === 'modern-side' ? `6px solid ${currentDoc.letterheadLineColor || letterheadLineColor || '#111111'}` : undefined,
+                                borderTop: (currentDoc.designPatternStyle || designPatternStyle) === 'executive-tech' ? `8px solid ${currentDoc.letterheadLineColor || letterheadLineColor || '#111111'}` : undefined,
+                                paddingLeft: (currentDoc.designPatternStyle || designPatternStyle) === 'modern-side' ? '28px' : undefined,
+                                borderLeftStyle: 'solid',
+                                borderTopStyle: 'solid'
+                              }}
+                            >
                               
                               {/* Watermark layer */}
                               {currentDoc.addWatermark && !currentDoc.paid && (
@@ -2196,79 +2619,126 @@ export default function App() {
                               )}
 
                               {/* Watermark logo image layer */}
-                              {(currentDoc.watermarkLogo || watermarkLogo) && (
-                                <div 
-                                  className="absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none"
-                                  style={{ mixBlendMode: 'multiply' }}
-                                >
-                                  <img 
-                                    src={currentDoc.watermarkLogo || watermarkLogo} 
-                                    className="w-2/3 h-2/3 object-contain" 
-                                    alt="Watermark background" 
-                                  />
-                                </div>
-                              )}
+                              {(currentDoc.watermarkLogo || watermarkLogo) && (() => {
+                                const align = currentDoc.watermarkLogoAlign || watermarkLogoAlign || 'center';
+                                let containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none";
+                                let imgClass = "w-2/3 h-2/3 object-contain";
+                                
+                                if (align === 'left') {
+                                  containerClass = "absolute left-6 top-[30%] w-32 h-32 flex items-center justify-center opacity-[0.05] pointer-events-none z-0 select-none";
+                                  imgClass = "w-full h-full object-contain";
+                                } else if (align === 'right') {
+                                  containerClass = "absolute right-6 top-[30%] w-32 h-32 flex items-center justify-center opacity-[0.05] pointer-events-none z-0 select-none";
+                                  imgClass = "w-full h-full object-contain";
+                                } else if (align === 'diagonal') {
+                                  containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none rotate-[-25deg]";
+                                  imgClass = "w-2/3 h-2/3 object-contain";
+                                } else { // center
+                                  containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none";
+                                  imgClass = "w-2/3 h-2/3 object-contain";
+                                }
+                                
+                                return (
+                                  <div className={containerClass} style={{ mixBlendMode: 'multiply' }}>
+                                    <img 
+                                      src={currentDoc.watermarkLogo || watermarkLogo} 
+                                      className={imgClass} 
+                                      alt="Watermark background" 
+                                    />
+                                  </div>
+                                );
+                              })()}
 
                               {/* Letterhead */}
-                              {(letterheadName || letterheadAddress || currentDoc.letterheadLogo || letterheadLogo) && (
-                                <div className="border-b-2 border-double border-gray-900 pb-2 mb-6 relative z-10">
-                                  {/* Align Left layout */}
-                                  {(currentDoc.letterheadLogoAlign === 'left' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'left')) && (
-                                    <div className="flex items-center gap-4 text-left">
-                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white" alt="Logo" />
-                                      )}
-                                      <div className="flex-1">
-                                        <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
-                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
-                                      </div>
-                                    </div>
-                                  )}
+                              {(letterheadName || letterheadAddress || currentDoc.letterheadLogo || letterheadLogo) && (() => {
+                                const currentPattern = currentDoc.designPatternStyle || designPatternStyle || 'standard-formal';
+                                const currentTitleColor = currentDoc.letterheadTitleColor || letterheadTitleColor || '#111111';
+                                const currentLineColor = currentDoc.letterheadLineColor || letterheadLineColor || '#111111';
+                                const currentLineStyle = currentDoc.letterheadLineStyle || letterheadLineStyle || 'double';
+                                const currentTitleSize = currentDoc.letterheadTitleSize || letterheadTitleSize || 'md';
+                                const currentLogoAlign = currentDoc.letterheadLogoAlign || letterheadLogoAlign || 'center';
 
-                                  {/* Align Right layout */}
-                                  {(currentDoc.letterheadLogoAlign === 'right' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'right')) && (
-                                    <div className="flex items-center gap-4 text-left justify-between">
-                                      <div className="flex-1">
-                                        <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
-                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
-                                      </div>
-                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white" alt="Logo" />
-                                      )}
-                                    </div>
-                                  )}
+                                let fontSizeClass = "text-sm";
+                                if (currentTitleSize === 'sm') fontSizeClass = "text-[11px]";
+                                else if (currentTitleSize === 'md') fontSizeClass = "text-sm";
+                                else if (currentTitleSize === 'lg') fontSizeClass = "text-base";
+                                else if (currentTitleSize === 'xl') fontSizeClass = "text-lg";
 
-                                  {/* Align Center layout */}
-                                  {(currentDoc.letterheadLogoAlign === 'center' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'center') || (!currentDoc.letterheadLogoAlign && !letterheadLogoAlign)) && (
-                                    <div className="text-center">
-                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                        <div className="flex justify-center mb-1.5">
-                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain rounded bg-white" alt="Logo" />
+                                let lineStyleCSS: React.CSSProperties = {};
+                                if (currentLineStyle === 'none') {
+                                  lineStyleCSS = { borderBottom: 'none' };
+                                } else if (currentLineStyle === 'dotted') {
+                                  lineStyleCSS = { borderBottom: `2px dotted ${currentLineColor}` };
+                                } else if (currentLineStyle === 'dashed') {
+                                  lineStyleCSS = { borderBottom: `2px dashed ${currentLineColor}` };
+                                } else if (currentLineStyle === 'solid') {
+                                  lineStyleCSS = { borderBottom: `2.5px solid ${currentLineColor}` };
+                                } else { // double
+                                  lineStyleCSS = { borderBottom: `4px double ${currentLineColor}` };
+                                }
+
+                                const fontFamClass = currentPattern === 'classic-academy' ? 'font-serif tracking-wide' : 'font-serif';
+
+                                return (
+                                  <div style={{ ...lineStyleCSS, paddingBottom: '10px', marginBottom: '24px', position: 'relative', zIndex: 10 }}>
+                                    {/* Align Left layout */}
+                                    {currentLogoAlign === 'left' && (
+                                      <div className="flex items-center gap-4 text-left">
+                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
+                                        )}
+                                        <div className="flex-1">
+                                          <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
+                                          <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
                                         </div>
-                                      )}
-                                      <h4 className="text-sm font-bold uppercase tracking-tight text-neutral-900 font-serif leading-tight">{letterheadName}</h4>
-                                      <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1">{letterheadAddress}</p>
-                                    </div>
-                                  )}
-
-                                  {/* Align with Text (inline) layout */}
-                                  {(currentDoc.letterheadLogoAlign === 'align-text' || (!currentDoc.letterheadLogoAlign && letterheadLogoAlign === 'align-text')) && (
-                                    <div className="flex items-center justify-center gap-3">
-                                      {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                        <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-10 w-10 object-contain shrink-0 rounded bg-white" alt="Logo" />
-                                      )}
-                                      <div className="text-left">
-                                        <h4 className="text-xs font-bold uppercase tracking-tight text-neutral-900 font-serif leading-none">{letterheadName}</h4>
-                                        <p className="text-[8px] text-gray-500 font-sans tracking-wide mt-0.5">{letterheadAddress}</p>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                    )}
+
+                                    {/* Align Right layout */}
+                                    {currentLogoAlign === 'right' && (
+                                      <div className="flex items-center gap-4 text-left justify-between">
+                                        <div className="flex-1">
+                                          <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
+                                          <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
+                                        </div>
+                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Align Center layout */}
+                                    {currentLogoAlign === 'center' && (
+                                      <div className="text-center">
+                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                          <div className="flex justify-center mb-1.5">
+                                            <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
+                                          </div>
+                                        )}
+                                        <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
+                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Align with Text (inline) layout */}
+                                    {currentLogoAlign === 'align-text' && (
+                                      <div className="flex items-center justify-center gap-3">
+                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
+                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-10 w-10 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
+                                        )}
+                                        <div className="text-left">
+                                          <h4 className={`font-bold uppercase tracking-tight leading-none ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
+                                          <p className="text-[8px] text-gray-500 font-sans tracking-wide mt-0.5 leading-normal">{letterheadAddress}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
 
                               {/* Letter Content preview */}
                               <div className="text-xs leading-relaxed text-justify whitespace-pre-line text-neutral-800 tracking-wide font-serif">
-                                {currentDoc.content}
+                                {currentDoc.content ? currentDoc.content.replace(/\*/g, '') : ''}
                               </div>
 
                               {/* Signature Line */}
@@ -2379,7 +2849,7 @@ export default function App() {
 
                 {dataLoading ? (
                   <div className="text-center py-12 bg-white rounded-xl border border-gray-150">
-                    <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mx-auto mb-3" />
+                    <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
                     <p className="text-sm text-neutral-500">Loading documents from ledger...</p>
                   </div>
                 ) : documents.length === 0 ? (
@@ -2391,7 +2861,7 @@ export default function App() {
                     </p>
                     <button 
                       onClick={() => setActiveTab('generate')}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 px-4 rounded-lg font-bold text-xs transition"
+                      className="bg-[#006e4a] hover:bg-[#005c3e] text-white py-1.5 px-4 rounded-lg font-bold text-xs transition"
                     >
                       Browse Document Types First
                     </button>
@@ -2446,6 +2916,12 @@ export default function App() {
                                     setLetterheadLogo(doc.letterheadLogo || null);
                                     setWatermarkLogo(doc.watermarkLogo || null);
                                     setLetterheadLogoAlign(doc.letterheadLogoAlign || 'center');
+                                    setWatermarkLogoAlign(doc.watermarkLogoAlign || 'center');
+                                    setLetterheadTitleColor(doc.letterheadTitleColor || '#111111');
+                                    setLetterheadLineColor(doc.letterheadLineColor || '#111111');
+                                    setLetterheadLineStyle(doc.letterheadLineStyle || 'double');
+                                    setDesignPatternStyle(doc.designPatternStyle || 'standard-formal');
+                                    setLetterheadTitleSize(doc.letterheadTitleSize || 'md');
                                     setAddWatermark(doc.addWatermark);
                                     setAddQrCode(doc.addQrCode);
                                     setAddSignatureLine(doc.addSignatureLine);
@@ -2501,7 +2977,7 @@ export default function App() {
 
                 {dataLoading ? (
                   <div className="text-center py-12 bg-white rounded-xl border border-gray-150">
-                    <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mx-auto mb-3" />
+                    <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
                     <p className="text-sm text-neutral-500">Aggregating checkout metrics...</p>
                   </div>
                 ) : payments.length === 0 ? (
@@ -2558,7 +3034,7 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 <div className="lg:col-span-5 bg-white border border-gray-150 rounded-xl shadow-xs p-6 space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-md">
+                    <div className="h-16 w-16 bg-gradient-to-tr from-[#006e4a] to-emerald-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-md">
                       {user.name.charAt(0)}
                     </div>
                     <div>
@@ -2576,6 +3052,35 @@ export default function App() {
                       <span className="font-semibold">Phone Number:</span>
                       <span className="font-bold text-neutral-900 font-mono">{user.phone}</span>
                     </div>
+                    {user.userType && (
+                      <div className="flex justify-between py-1">
+                        <span className="font-semibold">Affiliation Type:</span>
+                        <span className="font-bold text-neutral-950 capitalize">
+                          {user.userType === 'student' && '🎓 Student / Scholar'}
+                          {user.userType === 'faculty' && '🏫 Faculty / Staff'}
+                          {user.userType === 'organization' && '🏢 Agency / Org'}
+                          {user.userType === 'general' && '💼 Professional'}
+                        </span>
+                      </div>
+                    )}
+                    {user.institution && (
+                      <div className="flex justify-between py-1">
+                        <span className="font-semibold">Institution Name:</span>
+                        <span className="font-bold text-emerald-900">{user.institution}</span>
+                      </div>
+                    )}
+                    {user.department && (
+                      <div className="flex justify-between py-1">
+                        <span className="font-semibold">Department:</span>
+                        <span className="font-bold text-neutral-900">{user.department}</span>
+                      </div>
+                    )}
+                    {user.matricNo && (
+                      <div className="flex justify-between py-1">
+                        <span className="font-semibold">ID / Matric No.:</span>
+                        <span className="font-bold text-[#006e4a] font-mono">{user.matricNo}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between py-1">
                       <span className="font-semibold">Official Status:</span>
                       <span>
@@ -2679,7 +3184,7 @@ export default function App() {
                       <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
                         <div className="flex justify-between items-center text-gray-400">
                           <span className="text-[10px] font-extrabold uppercase tracking-widest">Global Registered Users</span>
-                          <UserIcon className="h-5 w-5 text-indigo-600" />
+                          <UserIcon className="h-5 w-5 text-[#006e4a]" />
                         </div>
                         <p className="text-2xl font-black text-neutral-900 mt-2">{adminStats.totalUsers} Members</p>
                         <p className="text-[10px] text-gray-500 mt-1">Excludes Administrator nodes</p>
@@ -2697,7 +3202,7 @@ export default function App() {
                       <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
                         <div className="flex justify-between items-center text-gray-400">
                           <span className="text-[10px] font-extrabold uppercase tracking-widest">Document Draft Conversion Rate</span>
-                          <TrendingUp className="h-5 w-5 text-indigo-600" />
+                          <TrendingUp className="h-5 w-5 text-[#006e4a]" />
                         </div>
                         <p className="text-2xl font-black text-neutral-900 mt-2">
                           {adminStats.totalDocuments > 0 
@@ -2732,7 +3237,7 @@ export default function App() {
                             type="text" 
                             required 
                             placeholder="e.g., student-transfer-letter"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                             value={newCatForm.id}
                             onChange={(e) => setNewCatForm({ ...newCatForm, id: e.target.value })}
                           />
@@ -2744,7 +3249,7 @@ export default function App() {
                             type="text" 
                             required 
                             placeholder="e.g., Student School Transfer Letter"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                             value={newCatForm.name}
                             onChange={(e) => setNewCatForm({ ...newCatForm, name: e.target.value })}
                           />
@@ -2755,7 +3260,7 @@ export default function App() {
                           <input 
                             type="number" 
                             required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                             value={newCatForm.priceNGN}
                             onChange={(e) => setNewCatForm({ ...newCatForm, priceNGN: Number(e.target.value) })}
                           />
@@ -2766,7 +3271,7 @@ export default function App() {
                           <textarea 
                             required 
                             placeholder="Introduce the target context here..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition min-h-[50px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition min-h-[50px]"
                             value={newCatForm.description}
                             onChange={(e) => setNewCatForm({ ...newCatForm, description: e.target.value })}
                           />
@@ -2776,7 +3281,7 @@ export default function App() {
                           <label className="block text-[11px] font-bold text-neutral-600 mb-1">Required Custom Field Attributes (JSON Array)</label>
                           <textarea 
                             required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-indigo-500 transition min-h-[140px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[140px]"
                             value={newCatForm.requiredFieldsText}
                             onChange={(e) => setNewCatForm({ ...newCatForm, requiredFieldsText: e.target.value })}
                           />
@@ -2787,7 +3292,7 @@ export default function App() {
                           <label className="block text-[11px] font-bold text-neutral-600 mb-1">Static Text Sample Backup</label>
                           <textarea 
                             required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-indigo-500 transition min-h-[80px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
                             value={newCatForm.samplePreview}
                             onChange={(e) => setNewCatForm({ ...newCatForm, samplePreview: e.target.value })}
                           />
@@ -2797,7 +3302,7 @@ export default function App() {
                           <label className="block text-[11px] font-bold text-neutral-600 mb-1">AI Generative Directive Prompt</label>
                           <textarea 
                             required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-indigo-500 transition min-h-[80px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
                             value={newCatForm.aiPromptTemplate}
                             onChange={(e) => setNewCatForm({ ...newCatForm, aiPromptTemplate: e.target.value })}
                           />
@@ -2805,7 +3310,7 @@ export default function App() {
 
                         <button 
                           type="submit"
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-3 rounded-lg transition"
+                          className="w-full bg-[#006e4a] hover:bg-[#005c3e] text-white font-extrabold text-xs py-2 px-3 rounded-lg transition"
                         >
                           Save New Template Structure
                         </button>
@@ -2824,7 +3329,7 @@ export default function App() {
                                 <span className="text-[10px] bg-neutral-100 text-neutral-700 px-1.5 py-0.2 rounded font-mono font-bold">₦{cat.priceNGN}</span>
                               </div>
                               <p className="text-xs text-gray-400 mt-1 leading-snug">{cat.description}</p>
-                              <p className="text-[10px] text-indigo-600 font-bold mt-1 uppercase tracking-wide">Fields Detected: {cat.requiredFields.map(f => f.key).join(' | ')}</p>
+                              <p className="text-[10px] text-[#006e4a] font-bold mt-1 uppercase tracking-wide">Fields Detected: {cat.requiredFields.map(f => f.key).join(' | ')}</p>
                             </div>
 
                             <button 
@@ -2872,7 +3377,7 @@ export default function App() {
                             type="text" 
                             required 
                             placeholder="e.g., University of Harcourt Grade-A SIWES"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                             value={newResearchForm.title}
                             onChange={(e) => setNewResearchForm({ ...newResearchForm, title: e.target.value })}
                           />
@@ -2884,7 +3389,7 @@ export default function App() {
                             type="text" 
                             required 
                             placeholder="e.g., Shell Petroleum, Warri"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
                             value={newResearchForm.organization}
                             onChange={(e) => setNewResearchForm({ ...newResearchForm, organization: e.target.value })}
                           />
@@ -2895,7 +3400,7 @@ export default function App() {
                           <textarea 
                             required 
                             placeholder="Enter the full text of the letter here..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-indigo-500 transition min-h-[140px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[140px]"
                             value={newResearchForm.rawText}
                             onChange={(e) => setNewResearchForm({ ...newResearchForm, rawText: e.target.value })}
                           />
@@ -2906,7 +3411,7 @@ export default function App() {
                           <textarea 
                             required 
                             placeholder="Specify paragraphs ordering, double lines usage, address alignments..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-indigo-500 transition min-h-[80px]"
+                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
                             value={newResearchForm.structureAnalysis}
                             onChange={(e) => setNewResearchForm({ ...newResearchForm, structureAnalysis: e.target.value })}
                           />
@@ -2950,7 +3455,7 @@ export default function App() {
                               <p className="text-[10px] leading-relaxed text-gray-600 whitespace-pre-wrap">{t.rawText}</p>
                             </div>
 
-                            <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-900">
+                            <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-100 text-[#006e4a]">
                               <span className="text-[9px] font-extrabold uppercase block tracking-wider mb-1">Verified Structural Parsing Analysis:</span>
                               <p className="text-[10px] leading-relaxed whitespace-pre-wrap font-mono">{t.structureAnalysis}</p>
                             </div>
@@ -2981,7 +3486,7 @@ export default function App() {
                         <label className="block text-xs font-bold text-neutral-700 uppercase mb-1.5">Global Gemini systemInstruction</label>
                         <textarea 
                           required 
-                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-indigo-500 transition min-h-[140px]"
+                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-[#006e4a] transition min-h-[140px]"
                           value={systemInstructionState}
                           onChange={(e) => setSystemInstructionState(e.target.value)}
                         />
@@ -2992,7 +3497,7 @@ export default function App() {
                         <label className="block text-xs font-bold text-neutral-700 uppercase mb-1.5">PDF and Letterhead Guidelines</label>
                         <textarea 
                           required 
-                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-indigo-500 transition min-h-[80px]"
+                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-[#006e4a] transition min-h-[80px]"
                           value={pdfLetterheadState}
                           onChange={(e) => setPdfLetterheadState(e.target.value)}
                         />
@@ -3103,7 +3608,7 @@ export default function App() {
                               <td className="p-4 text-right">
                                 <button 
                                   onClick={() => handlePrintDocument(doc)}
-                                  className="text-indigo-600 hover:text-indigo-800 font-bold"
+                                  className="text-[#006e4a] hover:text-[#005c3e] font-bold"
                                 >
                                   View / Print Draft
                                 </button>

@@ -9,6 +9,10 @@ export interface User {
   verified: boolean;
   walletBalance?: number;
   createdAt: string;
+  institution?: string;
+  department?: string;
+  matricNo?: string;
+  userType?: 'student' | 'faculty' | 'organization' | 'general';
 }
 
 export interface FormInputField {
@@ -45,6 +49,12 @@ export interface GeneratedDocument {
   letterheadLogo?: string;
   watermarkLogo?: string;
   letterheadLogoAlign?: 'left' | 'right' | 'center' | 'align-text';
+  watermarkLogoAlign?: 'left' | 'right' | 'center' | 'diagonal';
+  letterheadTitleColor?: string;
+  letterheadLineColor?: string;
+  letterheadLineStyle?: 'solid' | 'double' | 'dotted' | 'dashed' | 'none';
+  designPatternStyle?: 'standard-formal' | 'modern-side' | 'classic-academy' | 'executive-tech' | 'minimalist';
+  letterheadTitleSize?: 'sm' | 'md' | 'lg' | 'xl';
   addWatermark: boolean;
   addQrCode: boolean;
   addSignatureLine: boolean;
