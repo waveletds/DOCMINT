@@ -270,7 +270,15 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authForm)
       });
-      const data = await res.json();
+      
+      const responseText = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonErr) {
+        throw new Error(`Server response error: ${responseText.slice(0, 150) || 'Empty response'}`);
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Authentication failed');
       }
@@ -403,7 +411,13 @@ export default function App() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const resText = await res.text();
+        let errorData: any;
+        try {
+          errorData = JSON.parse(resText);
+        } catch (e) {
+          throw new Error(`Server response error: ${resText.slice(0, 150) || 'Unknown error'}`);
+        }
         throw new Error(errorData.error || 'Failed to trigger document draft creation.');
       }
 
@@ -548,6 +562,9 @@ export default function App() {
       const liaisonOffice = inputs.liaisonOffice || '';
       const officerName = inputs.officerName || 'Hon. Anthony Njoku';
       const officerTitle = inputs.officerTitle || 'Liaison Officer';
+      const fatherName = inputs.fatherName || 'Chief Odebiye Yusuf Kunle';
+      const motherName = inputs.motherName || 'Deaconess Oluwaseun Beatrice';
+      const bornPlace = inputs.bornPlace || 'Ondo East Town Center';
       const docDate = new Date(doc.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
       const isImo = stylePreset.includes('Imo');
@@ -875,28 +892,43 @@ export default function App() {
               <!-- Main Body Statement -->
               <div style="margin: 30px 10px; font-family: Georgia, serif; line-height: 1.8;">
                 <p style="font-family: sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; color: #666; margin-bottom: 25px;">To Whom It May Concern</p>
-                <p style="font-size: 18px; font-style: italic; color: #555; margin-bottom: 20px;">This is to certify that</p>
                 
-                <div style="margin: 25px 0;">
-                  <span style="font-size: 24px; font-weight: 950; text-transform: uppercase; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; display: inline-block; min-width: 320px;">
-                    ${gender}. ${fullName}
-                  </span>
-                  <span style="font-family: sans-serif; font-size: 9px; text-transform: uppercase; color: #999; letter-spacing: 2px; display: block; margin-top: 6px;">Primary Registrant Identifier</span>
-                </div>
-
-                <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 15px; color: #222;">
-                  <p style="text-indent: 12px; margin-bottom: 12px; text-align: justify;">
-                    whose information has been officially filed, hails from <strong style="text-decoration: underline;">${townOrVillage}</strong> 
-                    ${autonomousCommunity ? `in <strong style="text-decoration: underline;">${autonomousCommunity}</strong> autonomous community,` : ''} 
-                    situated in <strong style="text-decoration: underline;">${lga}</strong> Local Government Area of <strong style="text-decoration: underline;">${state}</strong>, Federal Republic of Nigeria.
-                  </p>
+                ${isOndo ? `
+                  <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 16px; color: #222; line-height: 2;">
+                    <p style="margin-bottom: 12px;">
+                      of <strong style="text-decoration: underline;">${gender}. ${fullName}</strong> is a native of <strong style="text-decoration: underline;">${townOrVillage}</strong> in <strong>${lga}</strong> Local Government of <strong>${state}</strong>.
+                    </p>
+                    <p style="margin-bottom: 12px;">
+                      HIS/HER Father <strong style="text-decoration: underline;">${fatherName}</strong> and Mother <strong style="text-decoration: underline;">${motherName}</strong> were born and breed at <strong style="text-decoration: underline;">${bornPlace}</strong>.
+                    </p>
+                    <p style="margin-bottom: 12px;">
+                      This certificate of origin is issued today <strong style="text-decoration: underline;">${docDate}</strong> at ${lga} Local Government Secretariat.
+                    </p>
+                  </div>
+                ` : `
+                  <p style="font-size: 18px; font-style: italic; color: #555; margin-bottom: 20px;">This is to certify that</p>
                   
-                  ${traditionalRuler ? `<p style="text-align: center; font-family: sans-serif; font-size: 12px; color: #444; border-top: 1px dotted #ccc; border-bottom: 1px dotted #ccc; padding: 6px 0; margin: 20px 0;">👑 The traditional ruler / royal highness of the community is: <strong>${traditionalRuler}</strong></p>` : ''}
+                  <div style="margin: 25px 0;">
+                    <span style="font-size: 24px; font-weight: 950; text-transform: uppercase; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; display: inline-block; min-width: 320px;">
+                      ${gender}. ${fullName}
+                    </span>
+                    <span style="font-family: sans-serif; font-size: 9px; text-transform: uppercase; color: #999; letter-spacing: 2px; display: block; margin-top: 6px;">Primary Registrant Identifier</span>
+                  </div>
 
-                  <p style="font-size: 12px; color: #666; font-style: italic; line-height: 1.5; margin-top: 20px; text-align: justify;">
-                    By implication of this verification docket, the registrant is authenticated as a valid indigene of the declared Local Government Area. All regulatory academies, military recruitment units, civil selection boards, and sovereign agencies are requested to grant the bearer the necessary assistance and parameters they may require.
-                  </p>
-                </div>
+                  <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 15px; color: #222;">
+                    <p style="text-indent: 12px; margin-bottom: 12px; text-align: justify;">
+                      whose information has been officially filed, hails from <strong style="text-decoration: underline;">${townOrVillage}</strong> 
+                      ${autonomousCommunity ? `in <strong style="text-decoration: underline;">${autonomousCommunity}</strong> autonomous community,` : ''} 
+                      situated in <strong style="text-decoration: underline;">${lga}</strong> Local Government Area of <strong style="text-decoration: underline;">${state}</strong>, Federal Republic of Nigeria.
+                    </p>
+                    
+                    ${traditionalRuler ? `<p style="text-align: center; font-family: sans-serif; font-size: 12px; color: #444; border-top: 1px dotted #ccc; border-bottom: 1px dotted #ccc; padding: 6px 0; margin: 20px 0;">👑 The traditional ruler / royal highness of the community is: <strong>${traditionalRuler}</strong></p>` : ''}
+
+                    <p style="font-size: 11px; color: #666; font-style: italic; line-height: 1.5; margin-top: 20px; text-align: justify;">
+                      By implication of this verification docket, the registrant is authenticated as a valid indigene of the declared Local Government Area. All regulatory academies, military recruitment units, civil selection boards, and sovereign agencies are requested to grant the bearer the necessary assistance and parameters they may require.
+                    </p>
+                  </div>
+                `}
               </div>
 
               <!-- Seals and Signatures footer block -->
@@ -2068,6 +2100,20 @@ export default function App() {
                                   value={generatorInputs[field.key] || ''}
                                   onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
                                 />
+                              ) : field.type === 'select' ? (
+                                <select
+                                  required={field.required}
+                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition"
+                                  value={generatorInputs[field.key] || ''}
+                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
+                                >
+                                  <option value="">-- {field.placeholder} --</option>
+                                  {field.options?.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
                               ) : (
                                 <input
                                   type="text"

@@ -255,6 +255,9 @@ export const INITIAL_CATEGORIES: DocumentCategory[] = [
       { key: 'liaisonOffice', label: 'Liaison Office Location (Optional)', placeholder: 'e.g., Imo State Liaison Office, Abuja', type: 'text', required: false },
       { key: 'officerName', label: 'Signing Officer Name', placeholder: 'e.g., Hon. Anthony Njoku', type: 'text', required: true },
       { key: 'officerTitle', label: 'Signing Officer Designation', placeholder: 'e.g., Liaison Officer, LGA Chairman, Secretary', type: 'text', required: true },
+      { key: 'fatherName', label: "Father's Name (Optional - Ondo Style)", placeholder: "e.g., Chief Odebiye Yusuf Kunle", type: 'text', required: false },
+      { key: 'motherName', label: "Mother's Name (Optional - Ondo Style)", placeholder: "e.g., Deaconess Oluwaseun Beatrice", type: 'text', required: false },
+      { key: 'bornPlace', label: "Born and Breed At (Optional - Ondo Style)", placeholder: "e.g., Ondo East Town Center", type: 'text', required: false },
       { key: 'stylePreset', label: 'Visual Certificate Style Preset', placeholder: 'Select style option', type: 'select', options: ['Imo Heartland (Green teeth border)', 'Lagos Epe Style (Tri-color banner)', 'Oguta Classic (Double green circle)', 'Cross River Ikom (Dual royal blue border)', 'Ondo East Authentic (Red seal, light watermark)'], required: true }
     ],
     samplePreview: `GOVERNMENT OF IMO STATE OF NIGERIA\n(EASTERN HEARTLAND)\n\nRef: IM/LO/ABJ/2063\n\nCERTIFICATE OF STATE OF ORIGIN\n\nThis is to certify that MR. ODEBIYE ADURAGBEMI ADEKUNLE hails from Oguta Village in Oguta Autonomous Community, Oguta Local Government Area of Imo State of Nigeria.\n\nThe name of his traditional ruler is His Royal Highness Eze Anthony.\n\nThis document is a formal reference issued for authentic indigeneship representation.`,
