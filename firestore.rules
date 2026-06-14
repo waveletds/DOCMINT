@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Global Safety Net default catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helper Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    // Entity Schema Validators
+    
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.phone is string && data.phone.size() <= 50 &&
+             data.role is string && (data.role == 'user' || data.role == 'admin') &&
+             data.verified is bool &&
+             data.walletBalance is number &&
+             data.createdAt is string;
+    }
+    
+    function isValidCategory(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.priceNGN is number &&
+             data.aiPromptTemplate is string && data.aiPromptTemplate.size() <= 10000 &&
+             data.samplePreview is string && data.samplePreview.size() <= 10000;
+    }
+    
+    function isValidDocument(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.categoryId is string && data.categoryId.size() <= 128 &&
+             data.categoryName is string && data.categoryName.size() <= 100 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 50000 &&
+             data.letterheadName is string && data.letterheadName.size() <= 200 &&
+             data.letterheadAddress is string && data.letterheadAddress.size() <= 1000 &&
+             data.addWatermark is bool &&
+             data.addQrCode is bool &&
+             data.addSignatureLine is bool &&
+             data.paid is bool &&
+             data.createdAt is string;
+    }
+    
+    function isValidPayment(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.categoryId is string && data.categoryId.size() <= 128 &&
+             data.categoryName is string && data.categoryName.size() <= 100 &&
+             data.amount is number &&
+             data.gateway is string && (data.gateway == 'paystack' || data.gateway == 'monnify' || data.gateway == 'flutterwave' || data.gateway == 'wallet') &&
+             data.reference is string && data.reference.size() <= 100 &&
+             data.status is string && (data.status == 'pending' || data.status == 'success' || data.status == 'failed') &&
+             data.createdAt is string;
+    }
+    
+    function isValidTemplate(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.categoryId is string && data.categoryId.size() <= 128 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.organization is string && data.organization.size() <= 200 &&
+             data.rawText is string && data.rawText.size() <= 50000 &&
+             data.structureAnalysis is string && data.structureAnalysis.size() <= 50000 &&
+             data.createdAt is string;
+    }
+
+    // Rules matching each collection
+    
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isValidId(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isValidUser(incoming()) && 
+                       incoming().id == existing().id &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if true;
+    }
+    
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create: if isValidId(categoryId) && isValidCategory(incoming());
+      allow update: if isValidId(categoryId) && isValidCategory(incoming()) &&
+                       incoming().id == existing().id;
+      allow delete: if true;
+    }
+    
+    match /documents/{documentId} {
+      allow read: if true;
+      allow create: if isValidId(documentId) && isValidDocument(incoming());
+      allow update: if isValidId(documentId) && isValidDocument(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if true;
+    }
+    
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow create: if isValidId(paymentId) && isValidPayment(incoming());
+      allow update: if isValidId(paymentId) && isValidPayment(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if true;
+    }
+    
+    match /researchTemplates/{templateId} {
+      allow read: if true;
+      allow create: if isValidId(templateId) && isValidTemplate(incoming());
+      allow update: if isValidId(templateId) && isValidTemplate(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().categoryId == existing().categoryId;
+      allow delete: if true;
+    }
+
+    match /systemPrompts/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

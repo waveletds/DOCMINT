@@ -16,7 +16,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
   // Destructure inputs with fallbacks
   const state = inputs.state || presetConfig.stateName || 'Imo State';
   const lga = inputs.lga || 'Oguta';
-  const fullName = inputs.fullName || 'Odebiye Aduragbemi Adekunle';
+  const fullName = inputs.fullName || inputs.childName || 'Odebiye Aduragbemi Adekunle';
   const gender = inputs.gender || 'MR';
   const townOrVillage = inputs.townOrVillage || 'Oguta Village';
   const autonomousCommunity = inputs.autonomousCommunity || '';
@@ -29,7 +29,10 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
   // Custom new optional fields
   const fatherName = inputs.fatherName || 'Chief Odebiye Yusuf Kunle';
   const motherName = inputs.motherName || 'Deaconess Oluwaseun Beatrice';
-  const bornPlace = inputs.bornPlace || 'Ondo East Town Center';
+  const bornPlace = inputs.bornPlace || inputs.placeOfBirth || 'Ondo East Town Center';
+
+  const isBirthCert = doc.categoryId === 'birth-certificate';
+  const certTitle = isBirthCert ? 'ATTESTATION OF BIRTH' : 'CERTIFICATE OF STATE OF ORIGIN';
 
   // Format date helper
   const formatDateStr = (dateString?: string) => {
@@ -186,7 +189,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {/* Document Red Title */}
             <div className="mt-4 mb-5">
               <h3 className="text-lg sm:text-xl font-bold text-red-650 uppercase tracking-tight border-y-2 border-red-200 py-1 max-w-md mx-auto font-sans">
-                CERTIFICATE OF STATE OF ORIGIN
+                {certTitle}
               </h3>
             </div>
           </div>
@@ -202,38 +205,60 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             </div>
 
             {/* Custom fields and texts formatted exactly as dotted lines in Image 1 */}
-            <div className="space-y-4 max-w-lg text-left font-serif">
-              <p className="text-base font-medium text-neutral-800">
-                This is to certify that <span className="font-sans font-extrabold text-black uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{gender}. {fullName}</span>
-              </p>
+            {isBirthCert ? (
+              <div className="space-y-3.5 max-w-lg text-left font-serif text-sm">
+                <p className="font-medium text-neutral-800">
+                  This is to certify and attest that: <span className="font-sans font-extrabold text-black uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{fullName} ({gender})</span>
+                </p>
+                <p className="text-neutral-800">
+                  was born at: <span className="font-bold underline text-black">{bornPlace}</span>
+                </p>
+                <p className="text-neutral-800">
+                  on the date: <span className="font-bold underline text-black">{inputs.dateOfBirth || docDate}</span>
+                </p>
+                <p className="text-neutral-800">
+                  to the father: <span className="font-bold text-black border-b border-neutral-300 pb-0.5">{fatherName}</span>
+                </p>
+                <p className="text-neutral-805">
+                  and mother: <span className="font-bold text-black border-b border-neutral-300 pb-0.5">{motherName}</span>.
+                </p>
+                <p className="text-neutral-700 font-sans text-xs">
+                  This record is registered with <span className="font-black" style={{ color: presetConfig.primaryColor }}>{lga} LGA</span> of {state || 'Nigeria'}.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-lg text-left font-serif">
+                <p className="text-base font-medium text-neutral-800">
+                  This is to certify that <span className="font-sans font-extrabold text-black uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{gender}. {fullName}</span>
+                </p>
 
-              <p className="text-neutral-800">
-                whose photograph appears above hails from <span className="font-bold underline text-black">{townOrVillage}</span>
-              </p>
+                <p className="text-neutral-800">
+                  whose photograph appears above hails from <span className="font-bold underline text-black">{townOrVillage}</span>
+                </p>
 
-              <p className="text-neutral-800">
-                village in <span className="font-bold underline text-black">{autonomousCommunity || 'N/A'}</span> autonomous
-              </p>
+                <p className="text-neutral-800">
+                  village in <span className="font-bold underline text-black">{autonomousCommunity || 'N/A'}</span> autonomous
+                </p>
 
-              <p className="text-neutral-800">
-                community in <span className="font-bold underline text-black">{lga}</span> Local Government Area
-              </p>
+                <p className="text-neutral-800">
+                  community in <span className="font-bold underline text-black">{lga}</span> Local Government Area
+                </p>
 
-              <p className="text-neutral-800">
-                of <span className="font-black" style={{ color: presetConfig.primaryColor }}>{presetConfig.stateName}</span> of Nigeria.
-              </p>
+                <p className="text-neutral-800">
+                  of <span className="font-black" style={{ color: presetConfig.primaryColor }}>{presetConfig.stateName}</span> of Nigeria.
+                </p>
 
-              <p className="text-neutral-700">
-                The name of his/her traditional ruler is <span className="font-bold underline text-black">{traditionalRuler || presetConfig.traditionalRulerFallback}</span>
-              </p>
-            </div>
+                <p className="text-neutral-700">
+                  The name of his/her traditional ruler is <span className="font-bold underline text-black">{traditionalRuler || presetConfig.traditionalRulerFallback}</span>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Warning notice stamp */}
           <div className="my-3 text-center">
             <div className="border border-neutral-300 p-1.5 max-w-sm mx-auto text-[9px] uppercase font-bold bg-neutral-50/80 text-neutral-500 leading-normal">
-              This certificate of state of origin is an official document<br/>
-              issued by the {presetConfig.stateName} Liaison office and is<br/>
+              This official certificate is generated under direct municipal administrative oversight and is<br/>
               <span className="text-red-650 font-black">NOT TRANSFERABLE</span>
             </div>
           </div>
@@ -332,34 +357,45 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {/* Gothic redviolet title exactly like pic */}
             <div className="my-4">
               <h3 className="text-2xl font-semibold italic text-[#8d0e34] underline decoration-amber-600/70 py-1.5 font-serif tracking-normal">
-                Certificate of Origin
+                {isBirthCert ? 'Attestation of Birth' : 'Certificate of Origin'}
               </h3>
             </div>
           </div>
 
           {/* Certificate statement */}
-          <div className="my-3 text-center space-y-6 max-w-md mx-auto">
+          <div className="my-3 text-center space-y-4 max-w-md mx-auto">
             <p className="text-lg italic font-sans text-neutral-700 leading-none">
               This is to certify that
             </p>
 
             <div className="my-3 py-1 border-b-2 border-dashed border-[#1d3a5f]/40">
               <span className="text-xl sm:text-2xl font-black block text-[#0f172a] uppercase font-sans tracking-wide">
-                {gender}. {fullName}
+                {isBirthCert ? fullName : `${gender}. ${fullName}`}
               </span>
             </div>
 
-            <p className="text-md leading-relaxed text-neutral-800 font-sans">
-              is an Indigene of <span className="font-bold border-b border-black text-[#0c4a6e] px-1">{townOrVillage || 'Local Town'}</span> in
-            </p>
+            {isBirthCert ? (
+              <div className="space-y-2 text-sm text-neutral-850 font-sans leading-relaxed">
+                <p>was born at <span className="font-bold">{bornPlace}</span> on <span className="font-bold">{inputs.dateOfBirth || docDate}</span>.</p>
+                <p>Father: <span className="font-semibold">{fatherName}</span> &nbsp;&bull;&nbsp; Mother: <span className="font-semibold">{motherName}</span></p>
+                <p className="text-md font-black text-blue-900 pt-1">{lga.toUpperCase()} LOCAL GOVERNMENT AREA</p>
+                <p>of {state || 'Nigeria'}.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-md leading-relaxed text-neutral-800 font-sans">
+                  is an Indigene of <span className="font-bold border-b border-black text-[#0c4a6e] px-1">{townOrVillage || 'Local Town'}</span> in
+                </p>
 
-            <p className="text-lg font-black text-[#31572c] leading-tight font-sans">
-              {lga.toUpperCase()} LOCAL GOVERNMENT AREA
-            </p>
+                <p className="text-lg font-black text-[#31572c] leading-tight font-sans">
+                  {lga.toUpperCase()} LOCAL GOVERNMENT AREA
+                </p>
 
-            <p className="text-md text-neutral-800 leading-relaxed font-sans">
-              of <span className="font-black text-blue-900">{presetConfig.stateName}, Nigeria</span>.
-            </p>
+                <p className="text-md text-neutral-800 leading-relaxed font-sans">
+                  of <span className="font-black text-blue-900">{presetConfig.stateName}, Nigeria</span>.
+                </p>
+              </div>
+            )}
 
             <div className="pt-2">
               <p className="text-[#a21caf] font-bold italic text-xs leading-relaxed max-w-xs mx-auto">
@@ -463,36 +499,47 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {/* Giant Red heading */}
             <div className="my-4">
               <h3 className="text-2xl sm:text-3xl font-black text-red-600 uppercase font-sans tracking-tight leading-none mb-1">
-                Identification Certificate
+                {isBirthCert ? 'Birth Registration Attestation' : 'Identification Certificate'}
               </h3>
             </div>
           </div>
 
           {/* Dotted underline text content */}
-          <div className="my-2 space-y-5 text-sm sm:text-base leading-relaxed max-w-lg mx-auto text-center font-serif text-neutral-800">
+          <div className="my-2 space-y-3.5 text-sm sm:text-base leading-relaxed max-w-lg mx-auto text-center font-serif text-neutral-800">
             <p className="italic font-sans text-neutral-600 leading-none text-base">This is to certify that</p>
 
             <div className="border-b border-dotted border-black/75 py-1 px-4">
-              <b className="text-xl text-[#111] uppercase font-sans tracking-tight">{gender}. {fullName}</b>
+              <b className="text-xl text-[#111] uppercase font-sans tracking-tight">{isBirthCert ? fullName : `${gender}. ${fullName}`}</b>
             </div>
-            <span className="text-[9px] uppercase tracking-widest text-neutral-400 font-sans block mt-0">NAME OF REGISTRANT (IN BLOCK LETTERS)</span>
+            <span className="text-[9px] uppercase tracking-widest text-neutral-400 font-sans block mt-0">
+              {isBirthCert ? 'NAME OF REGISTERED INDIVIDUAL' : 'NAME OF REGISTRANT (IN BLOCK LETTERS)'}
+            </span>
 
-            <div className="text-left space-y-4 pt-1 text-md">
-              <p>
-                is an indigene of <span className="font-bold underline text-black px-1">{townOrVillage}</span> Village / Town,
-              </p>
-              {autonomousCommunity && (
+            {isBirthCert ? (
+              <div className="text-left space-y-3 pt-1 text-md leading-relaxed">
+                <p>was born at: <span className="font-bold underline text-black px-1">{bornPlace}</span> on: <span className="font-bold border-b border-dashed text-black px-1">{inputs.dateOfBirth || docDate}</span>.</p>
+                <p>Father: <span className="font-semibold underline text-neutral-800">{fatherName}</span></p>
+                <p>Mother: <span className="font-semibold underline text-neutral-800">{motherName}</span></p>
+                <p>This registration falls under: <span className="font-black" style={{ color: presetConfig.primaryColor }}>{lga} LGA</span> of {state || 'Nigeria'}.</p>
+              </div>
+            ) : (
+              <div className="text-left space-y-4 pt-1 text-md">
                 <p>
-                  in <span className="font-bold underline text-black px-1">{autonomousCommunity}</span> Autonomous Community,
+                  is an indigene of <span className="font-bold underline text-black px-1">{townOrVillage}</span> Village / Town,
                 </p>
-              )}
-              <p>
-                situated in <span className="font-bold uppercase" style={{ color: presetConfig.primaryColor }}>{lga}</span> Local Government Area of <span className="font-black text-neutral-900 border-b border-dashed border-neutral-300">{state}</span>, Federal Republic of Nigeria.
-              </p>
-              <p className="text-center font-mono text-xs text-neutral-600 pt-1 border-y border-dotted border-neutral-200 py-1.5">
-                📅 DATED THIS: <span className="font-black text-black">{docDate.toUpperCase()}</span>
-              </p>
-            </div>
+                {autonomousCommunity && (
+                  <p>
+                    in <span className="font-bold underline text-black px-1">{autonomousCommunity}</span> Autonomous Community,
+                  </p>
+                )}
+                <p>
+                  situated in <span className="font-bold uppercase" style={{ color: presetConfig.primaryColor }}>{lga}</span> Local Government Area of <span className="font-black text-neutral-900 border-b border-dashed border-neutral-300">{state}</span>, Federal Republic of Nigeria.
+                </p>
+              </div>
+            )}
+            <p className="text-center font-mono text-xs text-neutral-600 pt-1 border-y border-dotted border-neutral-200 py-1.5">
+              📅 DATED THIS: <span className="font-black text-black">{docDate.toUpperCase()}</span>
+            </p>
           </div>
 
           {/* Bottom Seals & Double Spiky seals */}
@@ -589,7 +636,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {/* Gothic Script Maroon title */}
             <div className="my-3">
               <h3 className="text-2xl font-bold font-serif text-[#991b1b] italic tracking-wide">
-                Certificate of Origin
+                {isBirthCert ? 'Attestation of Birth' : 'Certificate of Origin'}
               </h3>
             </div>
           </div>
@@ -602,24 +649,37 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             </div>
 
             <div className="py-1 border-b border-neutral-300">
-              <b className="text-xl text-[#1e1b4b] uppercase font-sans font-black tracking-wide">{gender}. {fullName}</b>
+              <b className="text-xl text-[#1e1b4b] uppercase font-sans font-black tracking-wide">
+                {isBirthCert ? fullName : `${gender}. ${fullName}`}
+              </b>
             </div>
 
-            <p className="text-md font-sans text-neutral-700 italic leading-none">
-              whose photograph appears below, is an Indigene of
-            </p>
+            {isBirthCert ? (
+              <div className="space-y-3.5 text-sm text-neutral-850 font-sans leading-relaxed">
+                <p>was born at: <span className="font-bold underline text-[#1d3a5f]">{bornPlace}</span> on: <span className="font-bold">{inputs.dateOfBirth || docDate}</span>.</p>
+                <p>Father's Name: <span className="font-bold border-b border-neutral-300">{fatherName}</span></p>
+                <p>Mother's Name: <span className="font-bold border-b border-neutral-300">{motherName}</span></p>
+                <p>This registration is archived under <b className="text-[#047857]" style={{ color: presetConfig.primaryColor }}>{lga} Local Government</b> of {state || 'Nigeria'}.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-md font-sans text-neutral-700 italic leading-none">
+                  whose photograph appears below, is an Indigene of
+                </p>
 
-            <div className="py-1 border-b border-neutral-300 max-w-sm mx-auto">
-              <span className="text-md font-bold text-[#0f172a] font-sans underline">{townOrVillage || 'Local Town'}</span>
-            </div>
+                <div className="py-1 border-b border-neutral-300 max-w-sm mx-auto">
+                  <span className="text-md font-bold text-[#0f172a] font-sans underline">{townOrVillage || 'Local Town'}</span>
+                </div>
 
-            <p className="text-md text-neutral-800 font-sans">
-              in <b className="text-[#047857] uppercase font-black" style={{ color: presetConfig.primaryColor }}>{lga} Local Government Area</b> of
-            </p>
+                <p className="text-md text-neutral-800 font-sans">
+                  in <b className="text-[#047857] uppercase font-black" style={{ color: presetConfig.primaryColor }}>{lga} Local Government Area</b> of
+                </p>
 
-            <p className="text-lg font-black font-sans" style={{ color: presetConfig.primaryColor }}>
-              {presetConfig.stateName} of Nigeria
-            </p>
+                <p className="text-lg font-black font-sans" style={{ color: presetConfig.primaryColor }}>
+                  {presetConfig.stateName} of Nigeria
+                </p>
+              </div>
+            )}
 
             {/* Issued details line */}
             <div className="text-xs text-neutral-600 font-sans pt-1 border-t border-dotted border-neutral-200 mt-2">
@@ -738,7 +798,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {/* Certificate of Origin cursive Title */}
             <div className="my-3">
               <h3 className="text-2xl font-serif italic tracking-wide font-black" style={{ color: presetConfig.primaryColor }}>
-                Certificate of Origin
+                {isBirthCert ? 'Attestation of Birth' : 'Certificate of Origin'}
               </h3>
               {/* Blue handwritten subtitle */}
               <span className="font-sans text-xs italic text-blue-800 font-bold block leading-none">
@@ -748,39 +808,67 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           </div>
 
           {/* Paragraph content styled exactly as dot-spaced ledger fields in Image 5 */}
-          <div className="my-2 text-left text-sm sm:text-base leading-loose max-w-lg mx-auto space-y-4 font-serif text-neutral-800 px-2">
-            <p>
-              of <span className="font-sans font-black text-black uppercase underline decoration-neutral-800 decoration-2 px-1">{gender}. {fullName}</span>
-            </p>
+          {isBirthCert ? (
+            <div className="my-2 text-left text-sm sm:text-base leading-loose max-w-lg mx-auto space-y-3 font-serif text-neutral-800 px-2">
+              <p>
+                of <span className="font-sans font-black text-black uppercase underline decoration-neutral-800 decoration-2 px-1">{fullName} ({gender})</span>
+              </p>
 
-            <p>
-              is a native of <span className="font-bold underline text-black px-1">{townOrVillage}</span> in <b className="uppercase text-[#a21caf]" style={{ color: presetConfig.primaryColor }}>{lga}</b>
-            </p>
+              <p>
+                was born at hospital <span className="font-bold underline text-black px-1">{bornPlace}</span> on date <span className="font-bold underline text-black px-1">{inputs.dateOfBirth || docDate}</span>
+              </p>
 
-            <p>
-              Local Government of <span className="font-bold border-b border-black">{presetConfig.stateName}</span>.
-            </p>
+              <p>
+                whose Father is <span className="font-bold underline text-black px-1">{fatherName}</span>
+              </p>
 
-            <p>
-              HIS/HER Father <span className="font-bold underline text-black px-1">{fatherName}</span>
-            </p>
+              <p>
+                and Mother is <span className="font-bold underline text-black px-1">{motherName}</span>.
+              </p>
 
-            <p>
-              and Mother <span className="font-bold underline text-black px-1">{motherName}</span>
-            </p>
+              <p>
+                This birth registry is registered today <span className="font-sans font-bold border-b-2 border-dashed border-red-500/50 text-neutral-900 bg-neutral-55/50 px-2 font-mono text-xs">{docDate}</span>
+              </p>
 
-            <p>
-              were born and breed at <span className="font-bold underline text-black px-1">{bornPlace}</span>.
-            </p>
+              <p>
+                at <span className="font-bold italic text-neutral-700">{lga} Local Government Secretariat, {state}</span>.
+              </p>
+            </div>
+          ) : (
+            <div className="my-2 text-left text-sm sm:text-base leading-loose max-w-lg mx-auto space-y-4 font-serif text-neutral-800 px-2">
+              <p>
+                of <span className="font-sans font-black text-black uppercase underline decoration-neutral-800 decoration-2 px-1">{gender}. {fullName}</span>
+              </p>
 
-            <p>
-              This certificate of origin is issued today <span className="font-sans font-bold border-b-2 border-dashed border-red-500/50 text-neutral-900 bg-neutral-55/50 px-2 font-mono text-xs">{docDate}</span>
-            </p>
+              <p>
+                is a native of <span className="font-bold underline text-black px-1">{townOrVillage}</span> in <b className="uppercase text-[#a21caf]" style={{ color: presetConfig.primaryColor }}>{lga}</b>
+              </p>
 
-            <p>
-              at <span className="font-bold italic text-neutral-700">{lga} Local Government Secretariat</span>.
-            </p>
-          </div>
+              <p>
+                Local Government of <span className="font-bold border-b border-black">{presetConfig.stateName}</span>.
+              </p>
+
+              <p>
+                HIS/HER Father <span className="font-bold underline text-black px-1">{fatherName}</span>
+              </p>
+
+              <p>
+                and Mother <span className="font-bold underline text-black px-1">{motherName}</span>
+              </p>
+
+              <p>
+                were born and breed at <span className="font-bold underline text-black px-1">{bornPlace}</span>.
+              </p>
+
+              <p>
+                This certificate of origin is issued today <span className="font-sans font-bold border-b-2 border-dashed border-red-500/50 text-neutral-900 bg-neutral-55/50 px-2 font-mono text-xs">{docDate}</span>
+              </p>
+
+              <p>
+                at <span className="font-bold italic text-neutral-700">{lga} Local Government Secretariat</span>.
+              </p>
+            </div>
+          )}
 
           {/* Bottom Row Seals & Diagonal ink stamps */}
           <div className="pt-4 border-t border-neutral-200 flex justify-between items-end relative overflow-visible">
