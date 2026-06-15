@@ -109,19 +109,40 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
     return null;
   };
 
-  // Standard Coat of Arms SVG watermark background
-  const renderBackgroundWatermark = (opacity = "opacity-[0.05]") => {
-    return (
-      <div className={`absolute inset-0 flex items-center justify-center ${opacity} pointer-events-none select-none z-0`}>
-        <svg viewBox="0 0 100 100" className="w-3/4 h-3/4 text-neutral-900 fill-current">
-          {/* Nigerian Coat of Arms vector outline style */}
-          <path d="M50 15 L75 35 L65 75 L35 75 L25 35 Z M50 20 L30 36 L38 70 L62 70 L70 36 Z" />
-          <path d="M45 40 L55 40 L55 60 L45 60 Z" />
-          <circle cx="50" cy="50" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
-          <text x="50" y="90" fontSize="6" textAnchor="middle" fontWeight="bold" fontFamily="sans-serif">FEDERAL REPUBLIC OF NIGERIA</text>
-        </svg>
-      </div>
-    );
+  // Render user's custom watermark logo or empty if none (removed automated watermark as requested)
+  const renderBackgroundWatermark = (opacity = "opacity-[0.08]") => {
+    if (doc.addWatermark && doc.watermarkLogo) {
+      const align = doc.watermarkLogoAlign || 'center';
+      let containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center pointer-events-none z-0 select-none";
+      let imgClass = "w-2/3 h-2/3 object-contain";
+      
+      if (align === 'left') {
+        containerClass = "absolute left-6 top-[30%] w-32 h-32 flex items-center justify-center pointer-events-none z-0 select-none";
+        imgClass = "w-full h-full object-contain";
+      } else if (align === 'right') {
+        containerClass = "absolute right-6 top-[30%] w-32 h-32 flex items-center justify-center pointer-events-none z-0 select-none";
+        imgClass = "w-full h-full object-contain";
+      } else if (align === 'diagonal') {
+        containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center pointer-events-none z-0 select-none rotate-[-25deg]";
+        imgClass = "w-2/3 h-2/3 object-contain";
+      } else { // center
+        containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center pointer-events-none z-0 select-none";
+        imgClass = "w-2/3 h-2/3 object-contain";
+      }
+      
+      return (
+        <div className={`${containerClass} ${opacity}`} style={{ mixBlendMode: 'multiply' }}>
+          <img 
+            src={doc.watermarkLogo} 
+            className={imgClass} 
+            alt="Watermark background" 
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      );
+    }
+    // Automated/hardcoded watermark removed as requested by the user.
+    return null;
   };
 
   // 1. IMO STATE HEARTLAND TEMPLATE (TEETH BORDER PATTERN)

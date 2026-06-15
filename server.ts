@@ -339,23 +339,106 @@ async function startServer() {
       console.log('Generating letter via deterministic local regex rendering (no active AI Key or connection)');
       let text = category.samplePreview || `Dear Sir,\n\nThis is a student letter regarding ${category.name}.`;
       
-      // Attempt to substitute keys in sample preview or template prompt
-      for (const [key, value] of Object.entries(inputs)) {
-        const valStr = String(value);
-        // Replace {key} in sample text
-        const regex = new RegExp(`\\{${key}\\}`, 'gi');
-        text = text.replace(regex, valStr);
-        // Also find capital placeholders like "JOHN CHIDI OBI" and replace if possible
-        if (key.toLowerCase().includes('name') || key.toLowerCase().includes('student')) {
-          text = text.replace(/JOHN CHIDI OBI/gi, valStr);
-          text = text.replace(/AMINA YUSUF/gi, valStr);
-          text = text.replace(/DAVID ALAO/gi, valStr);
-          text = text.replace(/CHARLES OKAFOR/gi, valStr);
-          text = text.replace(/FATIMA IBRAHIM/gi, valStr);
-        }
-        if (key.toLowerCase().includes('church') || key.toLowerCase().includes('company')) {
-          text = text.replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, valStr);
-          text = text.replace(/CHEVRON NIGERIA LIMITED/gi, valStr);
+      // Category-specific precise substitutions
+      if (categoryId === 'church-attestation') {
+        const church = String(inputs.churchName || 'REDEEMED CHRISTIAN CHURCH OF GOD');
+        const address = String(inputs.churchAddress || 'Grace Sanctuary, Lagos');
+        const pastor = String(inputs.pastorName || 'Pastor Enoch Adeboye');
+        const title = String(inputs.pastorTitle || 'Resident Pastor');
+        const member = String(inputs.memberFullName || 'JOHN CHIDI OBI');
+        const duration = String(inputs.durationOfMembership || '5 years');
+        const activities = String(inputs.churchActivities || 'choir department and youth fellowship');
+        
+        const firstSpaceIdx = member.trim().indexOf(' ');
+        const memberFirst = firstSpaceIdx > -1 ? member.trim().substring(0, firstSpaceIdx) : member;
+
+        text = text
+          .replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, church)
+          .replace(/Grace Sanctuary, Lagos/gi, address)
+          .replace(/JOHN CHIDI OBI/gi, member)
+          .replace(/John Chidi Obi/gi, member)
+          .replace(/John is a committed member of our choir department/gi, `${memberFirst} is a committed member of our ${activities}`)
+          .replace(/choir department and serves diligently in the youth fellowship/gi, activities)
+          .replace(/5 years/gi, duration)
+          .replace(/Pastor Enoch Adeboye/gi, pastor)
+          .replace(/Resident Pastor/gi, title);
+      } else if (categoryId === 'siwes-completion') {
+        const company = String(inputs.companyName || 'CHEVRON NIGERIA LIMITED');
+        const supervisor = String(inputs.supervisorName || 'Engr. Tunde Bakare');
+        const title = String(inputs.supervisorTitle || 'Lead Systems Engineer');
+        const student = String(inputs.studentName || 'AMINA YUSUF');
+        const matric = String(inputs.matricNo || 'ENG/2021/045');
+        const inst = String(inputs.institutionName || 'Federal University of Technology, Minna');
+        const dept = String(inputs.department || 'Mechanical Engineering');
+        const start = String(inputs.startDate || 'January 3, 2026');
+        const end = String(inputs.endDate || 'June 12, 2026');
+
+        text = text
+          .replace(/CHEVRON NIGERIA LIMITED/gi, company)
+          .replace(/Engr\. Tunde Bakare/gi, supervisor)
+          .replace(/Lead Systems Engineer/gi, title)
+          .replace(/AMINA YUSUF/gi, student)
+          .replace(/Amina Yusuf/gi, student)
+          .replace(/ENG\/2021\/045/gi, matric)
+          .replace(/Federal University of Technology, Minna/gi, inst)
+          .replace(/Mechanical Engineering/gi, dept)
+          .replace(/January 3, 2026/gi, start)
+          .replace(/June 12, 2026/gi, end);
+      } else if (categoryId === 'internship-discharge') {
+        const company = String(inputs.companyName || 'Flutterwave Technologies');
+        const internName = String(inputs.internName || inputs.studentName || 'David Alao');
+        const duration = String(inputs.duration || '3 Months');
+        const role = String(inputs.role || 'Frontend Web Developer Intern');
+        const supervisor = String(inputs.supervisorName || 'Chioma Adeleke');
+        const title = String(inputs.supervisorTitle || 'Head of People & Culture');
+
+        const firstSpaceIdx = internName.trim().indexOf(' ');
+        const internFirst = firstSpaceIdx > -1 ? internName.trim().substring(0, firstSpaceIdx) : internName;
+
+        text = text
+          .replace(/FLUTTERWAVE TECHNOLOGIES/gi, company)
+          .replace(/David Alao/gi, internName)
+          .replace(/david/gi, internFirst)
+          .replace(/3 Months/gi, duration)
+          .replace(/Frontend Web Developer Intern/gi, role)
+          .replace(/Chioma Adeleke/gi, supervisor)
+          .replace(/Head of People & Culture/gi, title);
+      } else {
+        // Generic safe, strict-key-based fallback
+        for (const [key, value] of Object.entries(inputs)) {
+          const valStr = String(value);
+          const regex = new RegExp(`\\{${key}\\}`, 'gi');
+          text = text.replace(regex, valStr);
+
+          if (key === 'memberFullName' || key === 'studentName' || key === 'childName' || key === 'fullName' || key === 'internName') {
+            text = text.replace(/JOHN CHIDI OBI/gi, valStr);
+            text = text.replace(/AMINA YUSUF/gi, valStr);
+            text = text.replace(/DAVID ALAO/gi, valStr);
+            text = text.replace(/CHARLES OKAFOR/gi, valStr);
+            text = text.replace(/FATIMA IBRAHIM/gi, valStr);
+            text = text.replace(/Victor James/gi, valStr);
+            text = text.replace(/Kenneth Ndu/gi, valStr);
+            text = text.replace(/Samuel Cole/gi, valStr);
+            text = text.replace(/Ibrahim Babangida/gi, valStr);
+          } else if (key === 'churchName' || key === 'companyName' || key === 'schoolName' || key === 'institutionName') {
+            text = text.replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, valStr);
+            text = text.replace(/CHEVRON NIGERIA LIMITED/gi, valStr);
+            text = text.replace(/FLUTTERWAVE TECHNOLOGIES/gi, valStr);
+            text = text.replace(/UNIVERSITY OF LAGOS/gi, valStr);
+            text = text.replace(/UNIVERSITY OF ILORIN/gi, valStr);
+            text = text.replace(/STERLING BANK PLC/gi, valStr);
+          } else if (key === 'pastorName' || key === 'supervisorName' || key === 'officerName' || key === 'registrarName') {
+            text = text.replace(/Pastor Enoch Adeboye/gi, valStr);
+            text = text.replace(/Engr\. Tunde Bakare/gi, valStr);
+            text = text.replace(/Chioma Adeleke/gi, valStr);
+            text = text.replace(/Prof\. Olayinka Adebayo/gi, valStr);
+            text = text.replace(/Dr\. Chidi Nwosu/gi, valStr);
+            text = text.replace(/Prof\. Sarah Alabi/gi, valStr);
+          } else if (key === 'pastorTitle' || key === 'supervisorTitle' || key === 'officerTitle' || key === 'title') {
+            text = text.replace(/Resident Pastor/gi, valStr);
+            text = text.replace(/Lead Systems Engineer/gi, valStr);
+            text = text.replace(/Head of People & Culture/gi, valStr);
+          }
         }
       }
       
