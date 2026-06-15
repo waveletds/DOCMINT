@@ -34,6 +34,8 @@ import {
 import { User, DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearchTemplate, FormInputField } from './types.js';
 import CertificatePreview from './components/CertificatePreview.js';
 import { INITIAL_CATEGORIES, INITIAL_RESEARCH_TEMPLATES } from './initial-data.js';
+import { NIGERIAN_STATES, NIGERIAN_LGAS, getCleanStateKey } from './nigerian-states-data.js';
+
 
 // Intercept API calls to support serverless/static environments like Vercel or offline testing
 const realFetch = typeof window !== 'undefined' ? window.fetch : undefined;
@@ -2600,7 +2602,49 @@ export default function App() {
                               <label className="block text-xs font-bold text-neutral-700 mb-1">
                                 {field.label} {field.required && <span className="text-red-500">*</span>}
                               </label>
-                              {field.type === 'textarea' ? (
+                              {field.key === 'state' ? (
+                                <select
+                                  required={field.required}
+                                  className="w-full bg-[#fdfdfd] border-2 border-emerald-600/20 hover:border-emerald-600/40 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:border-[#006e4a] transition"
+                                  value={generatorInputs[field.key] || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const suffix = (val && !val.includes('Abuja') && !val.includes('FCT') && !val.includes('State')) ? ' State' : '';
+                                    const finalVal = val ? `${val}${suffix}` : '';
+                                    setGeneratorInputs({ 
+                                      ...generatorInputs, 
+                                      [field.key]: finalVal,
+                                      lga: '' // Reset the LGA field whenever the state is changed
+                                    });
+                                  }}
+                                >
+                                  <option value="">-- Select State of Origin --</option>
+                                  {NIGERIAN_STATES.map((st) => (
+                                    <option key={st} value={st}>
+                                      {st}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : field.key === 'lga' ? (
+                                <select
+                                  required={field.required}
+                                  className="w-full bg-[#fdfdfd] border-2 border-emerald-600/20 hover:border-emerald-600/40 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:border-[#006e4a] transition"
+                                  value={generatorInputs[field.key] || ''}
+                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
+                                >
+                                  <option value="">-- Choose Local Government Area (LGA) --</option>
+                                  {(() => {
+                                    const selectedState = generatorInputs['state'] || '';
+                                    const cleanKey = getCleanStateKey(selectedState);
+                                    const lgas = NIGERIAN_LGAS[cleanKey] || [];
+                                    return lgas.map((lg) => (
+                                      <option key={lg} value={lg}>
+                                        {lg}
+                                      </option>
+                                    ));
+                                  })()}
+                                </select>
+                              ) : field.type === 'textarea' ? (
                                 <textarea
                                   required={field.required}
                                   placeholder={field.placeholder}
