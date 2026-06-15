@@ -35,6 +35,7 @@ import { User, DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearc
 import CertificatePreview from './components/CertificatePreview.js';
 import { INITIAL_CATEGORIES, INITIAL_RESEARCH_TEMPLATES } from './initial-data.js';
 import { NIGERIAN_STATES, NIGERIAN_LGAS, getCleanStateKey } from './nigerian-states-data.js';
+import { PRESETS_DB } from './state-presets.js';
 
 
 // Intercept API calls to support serverless/static environments like Vercel or offline testing
@@ -2702,7 +2703,7 @@ export default function App() {
                                 <select
                                   required={field.required}
                                   className="w-full bg-[#fdfdfd] border-2 border-emerald-600/20 hover:border-emerald-600/40 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:border-[#006e4a] transition"
-                                  value={generatorInputs[field.key] || ''}
+                                  value={(generatorInputs[field.key] || '').replace(/\s*[sS]tate\s*/g, '').trim()}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     const suffix = (val && !val.includes('Abuja') && !val.includes('FCT') && !val.includes('State')) ? ' State' : '';
@@ -2756,7 +2757,7 @@ export default function App() {
                                   onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
                                 >
                                   <option value="">-- {field.placeholder} --</option>
-                                  {field.options?.map((opt) => (
+                                  {(field.key === 'stylePreset' ? Object.keys(PRESETS_DB) : (field.options || [])).map((opt) => (
                                     <option key={opt} value={opt}>
                                       {opt}
                                     </option>
