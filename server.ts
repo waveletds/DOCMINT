@@ -519,7 +519,48 @@ async function startServer() {
 
     await db.savePayment(paymentRec);
 
-    // Return initialization configurations for mock gateway rendering
+    let authorizationUrl = '';
+    let accessCode = '';
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+
+    if (paystackSecret && paystackSecret.trim() !== '' && gateway === 'paystack') {
+      try {
+        const paystackAmount = amount * 100; // in kobo
+        const response = await fetch('https://api.paystack.co/transaction/initialize', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${paystackSecret}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: user.email,
+            amount: paystackAmount,
+            reference,
+            callback_url: `${req.protocol}://${req.get('host') || 'localhost:3000'}/api/payments/callback`,
+            metadata: {
+              docId,
+              userId: user.id
+            }
+          })
+        });
+
+        if (response.ok) {
+          const resBody = (await response.json()) as any;
+          if (resBody.status === true && resBody.data) {
+            authorizationUrl = resBody.data.authorization_url;
+            accessCode = resBody.data.access_code;
+            console.log(`Paystack Transaction successfully initialized. Ref: ${reference}, Access Code: ${accessCode}`);
+          }
+        } else {
+          const errText = await response.text();
+          console.error(`Paystack initialization failed with status ${response.status}:`, errText);
+        }
+      } catch (e) {
+        console.error('Paystack initialization API error:', e);
+      }
+    }
+
+    // Return initialization configurations for mock or real gateway rendering
     res.json({
       paymentId: paymentRec.id,
       amount,
@@ -527,8 +568,70 @@ async function startServer() {
       reference,
       gateway,
       customerEmail: user.email,
-      customerPhone: user.phone
+      customerPhone: user.phone,
+      authorizationUrl,
+      accessCode,
+      publicKey: process.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c3cbde8a74e5cbbf5e8f49ad4518fa1c4eb985bf'
     });
+  });
+
+  app.get('/api/payments/callback', async (req, res) => {
+    const { reference, trxref } = req.query;
+    const ref = (reference || trxref) as string;
+
+    if (!ref) {
+      return res.redirect('/?payment=failed&reason=no_reference');
+    }
+
+    const payments = await db.getPayments();
+    const payment = payments.find(p => p.reference === ref);
+    if (!payment) {
+      return res.redirect('/?payment=failed&reason=not_found');
+    }
+
+    let isSuccess = false;
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (paystackSecret && paystackSecret.trim() !== '') {
+      try {
+        const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(ref)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${paystackSecret}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const resBody = (await response.json()) as any;
+          if (resBody.status === true && resBody.data && resBody.data.status === 'success') {
+            isSuccess = true;
+          }
+        }
+      } catch (err) {
+        console.error('Paystack callback verify err:', err);
+      }
+    } else {
+      isSuccess = true; // sandbox fallback
+    }
+
+    if (isSuccess) {
+      payment.status = 'success';
+      await db.savePayment(payment);
+
+      const docs = await db.getDocuments();
+      const doc = docs.find(d => d.userId === payment.userId && d.categoryId === payment.categoryId && !d.paid);
+      if (doc) {
+        doc.paid = true;
+        doc.paymentGateway = payment.gateway;
+        doc.paymentRef = ref;
+        await db.saveDocument(doc);
+        return res.redirect(`/?payment=success&docId=${doc.id}`);
+      }
+      return res.redirect('/?payment=success');
+    } else {
+      payment.status = 'failed';
+      await db.savePayment(payment);
+      return res.redirect('/?payment=failed');
+    }
   });
 
   app.post('/api/payments/verify', async (req, res) => {
@@ -548,12 +651,36 @@ async function startServer() {
       return res.status(404).json({ error: 'Payment transaction reference not found.' });
     }
 
+    let isSuccess = false;
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (paystackSecret && paystackSecret.trim() !== '' && payment.gateway === 'paystack') {
+      try {
+        const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${paystackSecret}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const resBody = (await response.json()) as any;
+          if (resBody.status === true && resBody.data && resBody.data.status === 'success') {
+            isSuccess = true;
+          }
+        }
+      } catch (e) {
+        console.error('Paystack inline backend verify failed:', e);
+      }
+    } else {
+      isSuccess = (status === 'success');
+    }
+
     // Update payment record
-    payment.status = status === 'success' ? 'success' : 'failed';
+    payment.status = isSuccess ? 'success' : 'failed';
     await db.savePayment(payment);
 
     // Update active document to PAID
-    if (status === 'success') {
+    if (isSuccess) {
       const doc = await db.getDocumentById(docId);
       if (doc) {
         doc.paid = true;

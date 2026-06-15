@@ -716,7 +716,7 @@ export default function App() {
   // Payment Flow State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState<'paystack' | 'monnify' | 'flutterwave'>('paystack');
-  const [paymentInitData, setPaymentInitData] = useState<{ amount: number; reference: string; payloadId?: string } | null>(null);
+  const [paymentInitData, setPaymentInitData] = useState<{ amount: number; reference: string; payloadId?: string; authorizationUrl?: string; accessCode?: string; publicKey?: string } | null>(null);
   const [paymentSimulating, setPaymentSimulating] = useState(false);
 
   // Admin Dashboard State
@@ -1057,6 +1057,82 @@ export default function App() {
     }
   };
 
+  // Dynamically load Paystack Pop script
+  const loadPaystackScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).PaystackPop) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const payWithPaystackInline = async (payInitData: any) => {
+    const loaded = await loadPaystackScript();
+    if (!loaded) {
+      alert('Could not contact Paystack secure channels. Reverting to sandbox simulator...');
+      return;
+    }
+
+    try {
+      const handler = (window as any).PaystackPop.setup({
+        key: payInitData.publicKey || 'pk_test_c3cbde8a74e5cbbf5e8f49ad4518fa1c4eb985bf',
+        email: user?.email || 'customer@edudocs.ai',
+        amount: payInitData.amount * 100, // Paystack amount is in kobo
+        ref: payInitData.reference,
+        onClose: () => {
+          alert('Secure checkout session cancelled.');
+        },
+        callback: async (response: any) => {
+          setPaymentSimulating(true);
+          try {
+            const res = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                reference: response.reference,
+                status: 'success',
+                docId: currentDoc?.id
+              })
+            });
+
+            if (res.ok) {
+              setCurrentDoc(prev => prev ? { ...prev, paid: true, paymentGateway: 'paystack', paymentRef: response.reference } : null);
+              alert('Official verification unlocked! Payment settled successfully via Paystack.');
+              loadPlatformData();
+              setPaymentModalOpen(false);
+              setPaymentInitData(null);
+            } else {
+              alert('Paystack verification failed. Please contact support.');
+            }
+          } catch (err) {
+            console.error('Paystack verification error:', err);
+          } finally {
+            setPaymentSimulating(false);
+          }
+        }
+      });
+      handler.openIframe();
+    } catch (err) {
+      console.error('Failed to trigger Paystack Pop:', err);
+      // fallback to checkout redirection in absolute sandbox restrictions
+      if (payInitData.authorizationUrl) {
+        window.open(payInitData.authorizationUrl, '_blank');
+      } else {
+        alert('Could not load Paystack inline popup in this sandboxed frame. Please use the simulator below to proceed!');
+      }
+    }
+  };
+
   // Checkout API triggers
   const triggerCheckout = async () => {
     if (!currentDoc) return;
@@ -1074,12 +1150,21 @@ export default function App() {
       });
       if (res.ok) {
         const payInit = await res.json();
-        setPaymentInitData({
+        const initPayload = {
           amount: payInit.amount,
           reference: payInit.reference,
-          payloadId: currentDoc.id
-        });
+          payloadId: currentDoc.id,
+          authorizationUrl: payInit.authorizationUrl,
+          accessCode: payInit.accessCode,
+          publicKey: payInit.publicKey
+        };
+        setPaymentInitData(initPayload);
         setPaymentModalOpen(true);
+
+        // If Paystack is chosen and real secret key is configured, we can launch the overlay instantly
+        if (selectedGateway === 'paystack' && payInit.accessCode) {
+          payWithPaystackInline(initPayload);
+        }
       } else {
         alert('Payment initialization failed. Try again.');
       }
@@ -2708,10 +2793,21 @@ export default function App() {
                                     const val = e.target.value;
                                     const suffix = (val && !val.includes('Abuja') && !val.includes('FCT') && !val.includes('State')) ? ' State' : '';
                                     const finalVal = val ? `${val}${suffix}` : '';
+
+                                    // Automatically find and map the state style preset
+                                    const matchedPreset = Object.keys(PRESETS_DB).find(presetKey => {
+                                      const config = PRESETS_DB[presetKey];
+                                      return config.stateName.toLowerCase() === `${val} state`.toLowerCase() || 
+                                             config.stateName.toLowerCase() === val.toLowerCase() ||
+                                             config.stateName.toLowerCase().includes(val.toLowerCase()) ||
+                                             presetKey.toLowerCase().includes(val.toLowerCase());
+                                    });
+
                                     setGeneratorInputs({ 
                                       ...generatorInputs, 
                                       [field.key]: finalVal,
-                                      lga: '' // Reset the LGA field whenever the state is changed
+                                      lga: '', // Reset the LGA field whenever the state is changed
+                                      ...(matchedPreset ? { stylePreset: matchedPreset } : {})
                                     });
                                   }}
                                 >
@@ -4350,8 +4446,40 @@ export default function App() {
               </p>
             </div>
 
+            {/* Real Checkout Box (if payload has accessCode or configured keys) */}
+            {paymentInitData.accessCode && (
+              <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl space-y-2 text-emerald-900 text-left">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-wide flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  Real Paystack Gateway Ready
+                </h5>
+                <p className="text-[11px] leading-normal text-emerald-800">
+                  Secure real-time payment session is initialized on Paystack's verified live ledger.
+                </p>
+                <div className="flex flex-col gap-2 pt-1 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => payWithPaystackInline(paymentInitData)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 rounded-lg font-black text-xs text-center transition select-none cursor-pointer"
+                  >
+                    🚀 Trigger Interactive Overlay
+                  </button>
+                  {paymentInitData.authorizationUrl && (
+                    <a
+                      href={paymentInitData.authorizationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-neutral-900 text-white py-2 px-3 rounded-lg font-bold text-xs text-center hover:bg-neutral-800 transition block select-none cursor-pointer"
+                    >
+                      🔗 Direct Redirection Page
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Simulated Checkout Credentials Box */}
-            <div className="bg-blue-50 border border-blue-150 p-3.5 rounded-xl space-y-1.5 text-blue-900">
+            <div className={`bg-blue-50 border border-blue-150 p-3.5 rounded-xl space-y-1.5 text-blue-900 ${paymentInitData.accessCode ? 'opacity-85' : ''}`}>
               <h5 className="text-[11px] font-extrabold uppercase tracking-wide flex items-center gap-1">
                 <CreditCard className="h-3.5 w-3.5 text-blue-600" />
                 Simulated Sandbox Payment Card

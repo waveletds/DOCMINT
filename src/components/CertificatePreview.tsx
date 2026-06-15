@@ -14,7 +14,9 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
   const presetConfig = getPresetConfig(stylePreset);
 
   // Destructure inputs with fallbacks
-  const state = inputs.state || presetConfig.stateName || 'Imo State';
+  const rawState = inputs.state || presetConfig.stateName || 'Imo State';
+  const stateSuffix = (rawState && !rawState.toLowerCase().includes('state') && !rawState.toLowerCase().includes('abuja') && !rawState.toLowerCase().includes('fct')) ? ' State' : '';
+  const state = `${rawState}${stateSuffix}`;
   const lga = inputs.lga || 'Oguta';
   const fullName = inputs.fullName || inputs.childName || 'Odebiye Aduragbemi Adekunle';
   const gender = inputs.gender || 'MR';
