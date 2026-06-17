@@ -1,274 +1,535 @@
-export const NIGERIAN_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "FCT (Abuja)",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara"
-];
+export interface StateData {
+  name: string;
+  capital: string;
+  slogan: string;
+  zone: 'North Central' | 'North East' | 'North West' | 'South East' | 'South South' | 'South West';
+  lgas: string[];
+  crops: string[];
+  minerals: string[];
+  areaSqKm: number;
+  populationEstimate: string;
+  festival: string;
+  description: string;
+  touristAttraction: string;
+}
 
-export const NIGERIAN_LGAS: Record<string, string[]> = {
-  "Abia": [
-    "Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", 
-    "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", 
-    "Obi Ngwa", "Ohafia", "Osisioma", "Ugwunagbo", "Ukwa East", 
-    "Ukwa West", "Umuahia North", "Umuahia South", "Umu Nneochi"
-  ],
-  "Adamawa": [
-    "Demsa", "Fufure", "Ganye", "Gayuk", "Girei", "Gombi", "Hong", 
-    "Jada", "Lamurde", "Madagali", "Maiha", "Mayo Belwa", "Michika", 
-    "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", 
-    "Yola North", "Yola South"
-  ],
-  "Akwa Ibom": [
-    "Abak", "Eastern Obolo", "Eket", "Esit Eket", "Essien Udim", 
-    "Etim Ekpo", "Etinan", "Ibeno", "Ibesikpo Asutan", "Ibiono Ibom", 
-    "Ika", "Ikono", "Ikot Abasi", "Ikot Ekpene", "Ini", "Itu", "Mbo", 
-    "Mkpat Enin", "Nsit Atai", "Nsit Ibom", "Nsit Ubium", "Obot Akara", 
-    "Okobo", "Onna", "Oron", "Oruk Anam", "Udung Uko", "Ukanafun", 
-    "Uruan", "Urue-Offong/Oruko", "Uyo"
-  ],
-  "Anambra": [
-    "Aguata", "Anambra East", "Anambra West", "Anaocha", "Awka North", 
-    "Awka South", "Ayamelum", "Dunukofia", "Ekwusigo", "Idemili North", 
-    "Idemili South", "Ihiala", "Njikoka", "Nnewi North", "Nnewi South", 
-    "Ogbaru", "Onitsha North", "Onitsha South", "Orumba North", 
-    "Orumba South", "Oyi"
-  ],
-  "Bauchi": [
-    "Alkaleri", "Bauchi", "Bogoro", "Damban", "Darazo", "Dass", 
-    "Gamawa", "Ganjuwa", "Giade", "Itas/Gadau", "Jama'are", "Katagum", 
-    "Kirfi", "Misau", "Ningi", "Shira", "Tafawa Balewa", "Toro", "Warji", "Zaki"
-  ],
-  "Bayelsa": [
-    "Brass", "Ekeremor", "Kolokuma/Opokuma", "Nembe", "Ogbia", 
-    "Sagbama", "Southern Ijaw", "Yenagoa"
-  ],
-  "Benue": [
-    "Agatu", "Apa", "Ado", "Buruku", "Gboko", "Guma", "Gwer East", 
-    "Gwer West", "Katsina-Ala", "Konshisha", "Kwande", "Logo", "Makurdi", 
-    "Obi", "Ogbadibo", "Ohimini", "Oju", "Okpokwu", "Oturkpo", "Tarka", 
-    "Ukum", "Ushongo", "Vandeikya"
-  ],
-  "Borno": [
-    "Abadam", "Askira/Uba", "Bama", "Bayo", "Biu", "Chibok", "Damboa", 
-    "Dikwa", "Gubio", "Guzamala", "Gwoza", "Hawul", "Jere", "Kaga", 
-    "Kala/Balge", "Konduga", "Kukawa", "Kwaya Kusar", "Mafa", "Magumeri", 
-    "Maiduguri", "Marte", "Mobbar", "Monguno", "Ngala", "Nganzai", "Shani"
-  ],
-  "Cross River": [
-    "Abi", "Akamkpa", "Akpabuyo", "Bakassi", "Bekwarra", "Biase", 
-    "Boki", "Calabar Municipal", "Calabar South", "Etung", "Ikom", 
-    "Obanliku", "Obubra", "Obudu", "Odukpani", "Ogoja", "Yakuur", "Yala"
-  ],
-  "Delta": [
-    "Aniocha North", "Aniocha South", "Bomadi", "Burutu", "Ethiope East", 
-    "Ethiope West", "Ika North East", "Ika South", "Isoko North", 
-    "Isoko South", "Ndokwa East", "Ndokwa West", "Okpe", "Oshimili North", 
-    "Oshimili South", "Patani", "Sapele", "Udu", "Ughelli North", 
-    "Ughelli South", "Ukwuani", "Uvwie", "Warri North", "Warri South", 
-    "Warri South West"
-  ],
-  "Ebonyi": [
-    "Abakaliki", "Afikpo North", "Afikpo South", "Ebonyi", "Ezza North", 
-    "Ezza South", "Ikwo", "Ishielu", "Ivo", "Izzi", "Ohaozara", "Ohaukwu", "Onicha"
-  ],
-  "Edo": [
-    "Akoko-Edo", "Egor", "Esan Central", "Esan North-East", 
-    "Esan South-East", "Esan West", "Etsako Central", "Etsako East", 
-    "Etsako West", "Igueben", "Ikpoba-Okha", "Oredo", "Orhionmwon", 
-    "Ovia North-East", "Ovia South-West", "Owan East", "Owan West", "Uhunmwonde"
-  ],
-  "Ekiti": [
-    "Ado Ekiti", "Efon", "Ekiti East", "Ekiti West", "Ekiti South-West", 
-    "Emure", "Gbonyin", "Ido-Osi", "Ijero", "Ikere", "Ikole", "Ilejemeje", 
-    "Irepodun/Ifelodun", "Ise/Orun", "Moba", "Oye"
-  ],
-  "Enugu": [
-    "Aninri", "Awgu", "Enugu East", "Enugu North", "Enugu South", 
-    "Ezeagu", "Igbo Etiti", "Igbo Eze North", "Igbo Eze South", 
-    "Isi Uzo", "Nkanu East", "Nkanu West", "Oji River", "Udenu", "Udi", 
-    "Uzo-Uwani"
-  ],
-  "FCT (Abuja)": [
-    "Abaji", "Bwari", "Gwagwalada", "Kuje", "Kwali", "Municipal Area Council (AMAC)"
-  ],
-  "Gombe": [
-    "Akko", "Balanga", "Billiri", "Dukku", "Funakaye", "Gombe", 
-    "Kaltungo", "Kwami", "Nafada", "Shongom", "Yamaltu/Deba"
-  ],
-  "Imo": [
-    "Aboh Mbaise", "Ahiazu Mbaise", "Ehime Mbano", "Ezinihitte Mbaise", 
-    "Ideato North", "Ideato South", "Ihitte/Uboma", "Ikeduru", 
-    "Isiala Mbano", "Isu", "Mbaitoli", "Ngor Okpala", "Njaba", 
-    "Nkwerre", "Nwangele", "Obowo", "Oguta", "Ohaji/Egbema", "Okigwe", 
-    "Onuimo", "Orlu", "Orsu", "Oru East", "Oru West", "Owerri Municipal", 
-    "Owerri North", "Owerri West"
-  ],
-  "Jigawa": [
-    "Auyo", "Babura", "Biriniwa", "Birnin Kudu", "Buji", "Dutse", 
-    "Gagarawa", "Garki", "Gumel", "Guri", "Gwaram", "Gwiwa", "Hadejia", 
-    "Jahun", "Kafin Hausa", "Kaugama", "Kazaure", "Kiri Kasama", 
-    "Kiyawa", "Maigatari", "Malam Madori", "Miga", "Ringim", "Roni", 
-    "Sule Tankarkar", "Taura", "Yankwashi"
-  ],
-  "Kaduna": [
-    "Birnin Gwari", "Chikun", "Giwa", "Igabi", "Ikara", "Jaba", 
-    "Jema'a", "Kachia", "Kaduna North", "Kaduna South", "Kagarko", 
-    "Kajuru", "Kaura", "Kauru", "Kubau", "Kudan", "Lere", "Makarfi", 
-    "Sabon Gari", "Sanga", "Soba", "Zangon Kataf", "Zaria"
-  ],
-  "Kano": [
-    "Ajingi", "Albasu", "Bagwai", "Bebeji", "Bichi", "Bunkure", "Dala", 
-    "Dambatta", "Dawakin Kudu", "Dawakin Tofa", "Doguwa", "Fagge", 
-    "Gabasawa", "Garko", "Garun Mallam", "Gaya", "Gezawa", "Gwale", 
-    "Gwarzo", "Kabo", "Karaye", "Kibiya", "Kiru", "Kumbotso", "Kunchi", 
-    "Kura", "Madobi", "Minjibir", "Kano Municipal", "Nassarawa", "Rimin Gado", 
-    "Rogo", "Shanono", "Sumaila", "Takai", "Tarauni", "Tofa", "Tsanyawa", 
-    "Tudun Wada", "Ungogo", "Warawa", "Wudil"
-  ],
-  "Katsina": [
-    "Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", 
-    "Dandume", "Danja", "Dan Musa", "Daura", "Dutsin Ma", "Faskari", 
-    "Funtua", "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", 
-    "Katsina", "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", 
-    "Mashi", "Matazu", "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"
-  ],
-  "Kebbi": [
-    "Aleiro", "Arewa Dandi", "Argungu", "Bagudo", "Birnin Kebbi", 
-    "Bunza", "Dandi", "Fakai", "Gwandu", "Jega", "Kalgo", "Koko/Besse", 
-    "Maiyama", "Ngaski", "Sakaba", "Shanga", "Suru", "Wasagu/Danko", 
-    "Yauri", "Zuru"
-  ],
-  "Kogi": [
-    "Adavi", "Ajaokuta", "Ankpa", "Bassa", "Dekina", "Ibaji", "Idah", 
-    "Igalamela Odolu", "Ijumu", "Kabba/Bunu", "Kogi", "Lokoja", "Mopa Muro", 
-    "Ofu", "Ogori/Magongo", "Okehi", "Okene", "Olamaboro", "Omala", 
-    "Yagba East", "Yagba West"
-  ],
-  "Kwara": [
-    "Asa", "Baruten", "Edu", "Ekiti", "Ifelodun", "Ilorin East", 
-    "Ilorin South", "Ilorin West", "Irepodun", "Isin", "Kaiama", "Moro", 
-    "Offa", "Oke Ero", "Oyun", "Pategi"
-  ],
-  "Lagos": [
-    "Agege", "Ajeromi-Ifelodun", "Alimosho", "Amuwo-Odofin", "Apapa", 
-    "Badagry", "Epe", "Eti-Osa", "Ibeju-Lekki", "Ifako-Ijaiye", "Ikeja", 
-    "Ikorodu", "Kosofe", "Lagos Island", "Lagos Mainland", "Mushin", 
-    "Ojo", "Oshodi-Isolo", "Shomolu", "Surulere"
-  ],
-  "Nasarawa": [
-    "Akwanga", "Awe", "Doma", "Karu", "Keana", "Keffi", "Kokona", 
-    "Lafia", "Nasarawa", "Nasarawa Egon", "Obi", "Toto", "Wamba"
-  ],
-  "Niger": [
-    "Agaie", "Agwara", "Bida", "Borgu", "Bosso", "Chanchaga", "Edati", 
-    "Gbako", "Katcha", "Kontagora", "Lapai", "Lavun", "Magama", "Mariga", 
-    "Mashegu", "Mokwa", "Moya", "Paikoro", "Rafi", "Rijau", "Shiroro", 
-    "Suleja", "Tafa", "Wushishi"
-  ],
-  "Ogun": [
-    "Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Egbado North", 
-    "Egbado South", "Ewekoro", "Ifo", "Ijebu East", "Ijebu North", 
-    "Ijebu North East", "Ijebu Ode", "Ikenne", "Imeko Afon", "Ipokia", 
-    "Obafemi Owode", "Odogbolu", "Odeda", "Ogun Waterside", "Remo North", 
-    "Shagamu"
-  ],
-  "Ondo": [
-    "Akoko North-East", "Akoko North-West", "Akoko South-East", 
-    "Akoko South-West", "Akure North", "Akure South", "Ese Odo", 
-    "Idanre", "Ifedore", "Ilaje", "Ile Oluji/Okeigbo", "Irele", "Odigbo", 
-    "Okitipupa", "Ondo East", "Ondo West", "Ose", "Owo"
-  ],
-  "Osun": [
-    "Atakumosa East", "Atakumosa West", "Ayedaade", "Ayireire", 
-    "Boluwaduro", "Boripe", "Ede North", "Ede South", "Egbedore", 
-    "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", 
-    "Ifedayo", "Ifelodun", "Ila Orangun", "Ilesa East", "Ilesa West", "Irepodun", 
-    "Irewole", "Isokan", "Iwo", "Obokun", "Odo Otin", "Ola Oluwa", 
-    "Olorunda", "Oriade", "Orolu", "Osogbo"
-  ],
-  "Oyo": [
-    "Afijio", "Akinyele", "Atiba", "Atisbo", "Egbeda", "Ibarapa Central", 
-    "Ibarapa East", "Ibarapa North", "Ido", "Irepo", "Itesiwaju", 
-    "Iwajowa", "Kajola", "Lagelu", "Ogbomosho North", "Ogbomosho South", 
-    "Ogo Oluwa", "Olorunsogo", "Oluyole", "Ona Ara", "Orelope", "Ori Ire", 
-    "Oyo East", "Oyo West", "Saki East", "Saki West", "Surulere"
-  ],
-  "Plateau": [
-    "Barkin Ladi", "Bassa", "Bokkos", "Jos East", "Jos North", "Jos South", 
-    "Kanam", "Kanke", "Langtang North", "Langtang South", "Mangu", 
-    "Mikang", "Pankshin", "Qua'an Pan", "Riyom", "Shendam", "Wase"
-  ],
-  "Rivers": [
-    "Abua/Odual", "Ahoada East", "Ahoada West", "Akuku-Toru", 
-    "Andoni", "Asari-Toru", "Bonny", "Degema", "Eleme", "Emohua", 
-    "Etche", "Gokana", "Ikwerre", "Oyigbo", "Khana", "Obio/Akpor", 
-    "Ogba/Egbema/Ndoni", "Ogu/Bolo", "Okrika", "Omuma", "Opobo/Nkoro", 
-    "Port Harcourt", "Tai"
-  ],
-  "Sokoto": [
-    "Binji", "Bodinga", "Dange Shuni", "Gada", "Goronyo", "Gudu", 
-    "Gwadabawa", "Illela", "Isa", "Kebbe", "Kware", "Rabah", "Sabon Birni", 
-    "Shagari", "Silame", "Sokoto North", "Sokoto South", "Tambuwal", 
-    "Tangaza", "Tureta", "Wamako", "Wurno", "Yabo"
-  ],
-  "Taraba": [
-    "Ardo Kola", "Bali", "Donga", "Gashaka", "Gassol", "Ibi", "Jalingo", 
-    "Karim Lamido", "Kurmi", "Lau", "Sardauna", "Takum", "Ussa", 
-    "Wukari", "Yorro", "Zing"
-  ],
-  "Yobe": [
-    "Bade", "Bursari", "Damaturu", "Fika", "Fune", "Geidam", "Gujba", 
-    "Gulani", "Jakusko", "Karasuwa", "Machina", "Nangere", "Nguru", 
-    "Potiskum", "Tarmuwa", "Yunusari", "Yusufari"
-  ],
-  "Zamfara": [
-    "Anka", "Bakura", "Birnin Magaji/Kiyaw", "Bukkuyum", "Bungudu", 
-    "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", 
-    "Talata Mafara", "Chafe", "Zurmi"
-  ]
-};
-
-export const getCleanStateKey = (stateVal: string): string => {
-  if (!stateVal) return '';
-  const clean = stateVal.replace(/\s*[sS]tate\s*/g, '').trim();
-  if (clean.toLowerCase().includes('abuj') || clean.toLowerCase().includes('fct') || clean.toLowerCase().includes('federal capital')) {
-    return 'FCT (Abuja)';
+export const NIGERIAN_STATES: StateData[] = [
+  {
+    name: "Abia",
+    capital: "Umuahia",
+    slogan: "God's Own State",
+    zone: "South East",
+    lgas: ["Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", "Obingwa", "Ohafia", "Osisioma", "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South", "Umunneochi"],
+    crops: ["Cassava", "Palm Oil", "Yam", "Maize", "Cocoa"],
+    minerals: ["Crude Oil", "Natural Gas", "Lead", "Zinc", "Limestone"],
+    areaSqKm: 6320,
+    populationEstimate: "4,143,100",
+    festival: "New Yam Festival (Iri Ji)",
+    description: "Famous for its active commercial hub at Aba, Abia State is nestled in the South-East region. It features rich agricultural lands and is a key manufacturing center for footwear, garments, and hand-crafted goods.",
+    touristAttraction: "Arochukwu Long Juju Cave"
+  },
+  {
+    name: "Adamawa",
+    capital: "Yola",
+    slogan: "Land of Beauty",
+    zone: "North East",
+    lgas: ["Demsa", "Fufure", "Ganye", "Gayuk", "Gombi", "Girei", "Guyuk", "Hong", "Jada", "Lamurde", "Madagali", "Maiha", "Mayo-Belwa", "Michika", "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", "Yola North", "Yola South"],
+    crops: ["Cotton", "Groundnuts", "Maize", "Yams", "Millet"],
+    minerals: ["Gypsum", "Coal", "Limestone", "Clay", "Barite"],
+    areaSqKm: 36917,
+    populationEstimate: "4,248,400",
+    festival: "Njuwa Fishing Festival",
+    description: "Formed in 1991 from old Gongola state, Adamawa features spectacular highlands including the Mandara Mountains and the volcanic Sukur Cultural Landscape, a UNESCO World Heritage site.",
+    touristAttraction: "Sukur Cultural Landscape (UNESCO)"
+  },
+  {
+    name: "Akwa Ibom",
+    capital: "Uyo",
+    slogan: "Land of Promise",
+    zone: "South South",
+    lgas: ["Abak", "Eastern Obolo", "Eket", "Esit Eket", "Essien Udim", "Etim Ekpo", "Etinan", "Ibeno", "Ibesikpo Asutan", "Ibiono-Ibom", "Ika", "Ikono", "Ikot Abasi", "Ikot Ekpene", "Ini", "Itu", "Mbo", "Mkpat-Enin", "Nsit-Atai", "Nsit-Ibom", "Nsit-Ubium", "Obot Akara", "Okobo", "Onna", "Oron", "Oruk Anam", "Udung-Uko", "Ukanafun", "Uruan", "Urue-Offong/Oruko", "Uyo"],
+    crops: ["Cassava", "Yam", "Plantain", "Cocoa", "Rubber"],
+    minerals: ["Crude Oil", "Natural Gas", "Clay", "Coal", "Limestone"],
+    areaSqKm: 7081,
+    populationEstimate: "5,482,200",
+    festival: "Ekpo Masquerade Festival",
+    description: "One of Nigeria's highest crude-oil producing states, Akwa Ibom boasts a beautiful coastline, ultra-modern infrastructure, and a rich culinary heritage legendary across West Africa.",
+    touristAttraction: "Ibeno Beach (Longest Sand Beach in West Africa)"
+  },
+  {
+    name: "Anambra",
+    capital: "Awka",
+    slogan: "Light of the Nation",
+    zone: "South East",
+    lgas: ["Aguata", "Anambra East", "Anambra West", "Anaocha", "Awka North", "Awka South", "Ayamelum", "Dunukofia", "Ekwusigo", "Idemili North", "Idemili South", "Ihiala", "Nnewi North", "Nnewi South", "Ogbaru", "Onitsha North", "Onitsha South", "Orumba North", "Orumba South", "Oyi"],
+    crops: ["Yam", "Cassava", "Rice", "Palm Oil", "Cocoyam"],
+    minerals: ["Natural Gas", "Crude Oil", "Bauxite", "Ceramic Clay"],
+    areaSqKm: 4844,
+    populationEstimate: "5,527,800",
+    festival: "Igu Aro Festival (Umueri)",
+    description: "A highly urbanized state, Anambra is a major trading center with West Africa's largest open-market in Onitsha, alongside Nnewi, Nigeria's premier homegrown automotive industrial town.",
+    touristAttraction: "Ogbunike Caves"
+  },
+  {
+    name: "Bauchi",
+    capital: "Bauchi",
+    slogan: "Pearl of Tourism",
+    zone: "North East",
+    lgas: ["Alkaleri", "Bauchi", "Bogoro", "Damban", "Darazo", "Dass", "Gamawa", "Ganjuwa", "Giade", "Itas/Gadau", "Jama'are", "Katagum", "Kirfi", "Misau", "Ningi", "Shira", "Tafawa Balewa", "Toro", "Warji", "Zaki"],
+    crops: ["Sorghum", "Millet", "Rice", "Cotton", "Maize"],
+    minerals: ["Gold", "Coal", "Limestone", "Iron Ore", "Gypsum"],
+    areaSqKm: 45837,
+    populationEstimate: "6,537,300",
+    festival: "Durbar Festival",
+    description: "As the 'Pearl of Tourism', Bauchi is home to the stunning Yankari Game Reserve, Nigeria's richest wildlife park containing elephants, lions, baboons, and therapeutic natural warm springs.",
+    touristAttraction: "Yankari Game Reserve & Wikki Warm Springs"
+  },
+  {
+    name: "Bayelsa",
+    capital: "Yenagoa",
+    slogan: "Glory of all Lands",
+    zone: "South South",
+    lgas: ["Brass", "Ekeremor", "Kolokuma/Opokuma", "Nembe", "Ogbia", "Sagbama", "Southern Ijaw", "Yenagoa"],
+    crops: ["Plantain", "Oil Palm", "Cassava", "Yam", "Cocoa"],
+    minerals: ["Crude Oil", "Natural Gas", "Clay", "Sand"],
+    areaSqKm: 10700,
+    populationEstimate: "2,277,900",
+    festival: "Seigbin Fishing Festival",
+    description: "Formed in 1996 in the heart of the Niger Delta basin, Bayelsa is a major oil-producing state characterized by an intricate network of creeks, mangrove swamps, and riverine communities.",
+    touristAttraction: "Oloibiri Oil Well Museum (First Commercial Oil Well)"
+  },
+  {
+    name: "Benue",
+    capital: "Makurdi",
+    slogan: "Food Basket of the Nation",
+    zone: "North Central",
+    lgas: ["Agatu", "Apa", "Ado", "Buruku", "Gboko", "Guma", "Gwer East", "Gwer West", "Katsina-Ala", "Konshisha", "Kwande", "Logo", "Makurdi", "Obi", "Ogbadibo", "Ohimini", "Oju", "Okpokwu", "Oturkpo", "Tarka", "Ukum", "Ushongo", "Vandeikya"],
+    crops: ["Yam", "Cassava", "Soybeans", "Sesame Seeds", "Mangoes", "Rice"],
+    minerals: ["Limestone", "Coal", "Gypsum", "Salt", "Barite"],
+    areaSqKm: 34059,
+    populationEstimate: "5,741,800",
+    festival: "Kwagh-Hir Puppetry Festival",
+    description: "Blessed with extremely fertile soil and fed by the Benue River, the state is Nigeria's agricultural powerhouse, leading the production of sweet tubers, oranges, mangoes, and grains.",
+    touristAttraction: "Ikwe Wildlife Spring Resort"
+  },
+  {
+    name: "Borno",
+    capital: "Maiduguri",
+    slogan: "Home of Peace",
+    zone: "North East",
+    lgas: ["Abadam", "Askira/Uba", "Bama", "Bayo", "Biu", "Chibok", "Damboa", "Dikwa", "Gubio", "Guzamala", "Gwoza", "Hawul", "Jere", "Kaga", "Kala/Balge", "Konduga", "Kukawa", "Kwaya Kusar", "Mafa", "Magumeri", "Maiduguri", "Marte", "Mobbar", "Monguno", "Ngala", "Nganzai", "Shani"],
+    crops: ["Millet", "Sorghum", "Cowpea", "Onions", "Wheat"],
+    minerals: ["Diatomite", "Clay", "Gypsum", "Salt"],
+    areaSqKm: 70898,
+    populationEstimate: "5,865,600",
+    festival: "Lake Chad International Cultural Festival",
+    description: "Borno State is the historic seat of the ancient Kanem-Bornu Empire registry. It borders Niger, Chad, and Cameroon, making it an internationally linked trading hub in the Sahel region.",
+    touristAttraction: "Borno State Museum & Shehu's Palace"
+  },
+  {
+    name: "Cross River",
+    capital: "Calabar",
+    slogan: "The People's Paradise",
+    zone: "South South",
+    lgas: ["Abi", "Akamkpa", "Akpabuyo", "Bakassi", "Bekwarra", "Biase", "Boki", "Calabar Municipal", "Calabar South", "Etung", "Ikom", "Obanliku", "Obubra", "Obudu", "Odukpani", "Ogoja", "Yakuur", "Yala"],
+    crops: ["Cocoa", "Rubber", "Palm Oil", "Plantain", "Coffee"],
+    minerals: ["Limestone", "Barite", "Clay", "Salt", "Granite"],
+    areaSqKm: 20156,
+    populationEstimate: "3,866,300",
+    festival: "Calabar Carnival (Africa's Biggest Street Party)",
+    description: "Renowned for its clean environment and warm hospitality, Cross River has beautiful mountain ranges, rich rainforests hosting endangered primate sanctuaries, and a pristine carnival atmosphere.",
+    touristAttraction: "Obudu Mountain Resort & Drill Ranch"
+  },
+  {
+    name: "Delta",
+    capital: "Asaba",
+    slogan: "The Big Heart",
+    zone: "South South",
+    lgas: ["Aniocha North", "Aniocha South", "Bomadi", "Burutu", "Ethiope East", "Ethiope West", "Ika North East", "Ika South", "Isoko North", "Isoko South", "Ndokwa East", "Ndokwa West", "Okpe", "Oshimili North", "Oshimili South", "Patani", "Sapele", "Udu", "Ughelli North", "Ughelli South", "Ukwuani", "Uvwie", "Varri South", "Warri North", "Warri South West"],
+    crops: ["Cassava", "Rubber", "Oil Palm", "Cocoa", "Plantain"],
+    minerals: ["Crude Oil", "Natural Gas", "Silica Sand", "Industrial Clay"],
+    areaSqKm: 17698,
+    populationEstimate: "5,663,400",
+    festival: "Uvwie Coronation Festival",
+    description: "Centering the Niger River, Delta State is major crude-producing giant. It split from Bendel State and features spectacular diverse landscapes spanning beaches, swamps, and fertile agricultural plains.",
+    touristAttraction: "Lander Brothers Anchorage, Asaba"
+  },
+  {
+    name: "Ebonyi",
+    capital: "Abakaliki",
+    slogan: "Salt of the Nation",
+    zone: "South East",
+    lgas: ["Abakaliki", "Afikpo North", "Afikpo South", "Ezza North", "Ezza South", "Ikwo", "Ishielu", "Ivo", "Izzi", "Ohaozara", "Ohaukwu", "Onicha"],
+    crops: ["Rice", "Yam", "Cassava", "Groundnuts", "Cocoyam"],
+    minerals: ["Lead", "Zinc", "Salt", "Limestone", "Gypsum"],
+    areaSqKm: 5533,
+    populationEstimate: "2,880,400",
+    festival: "Ebonyi State Festival of Arts and Culture",
+    description: "Acclaimed as the 'Salt of the Nation' due to its massive salt lakes, Ebonyi is a primary agrarian state, boasting the largest rice production and milling facilities in West Africa.",
+    touristAttraction: "Okposi Salt Lake"
+  },
+  {
+    name: "Edo",
+    capital: "Benin City",
+    slogan: "The Heartbeat of Al Nation",
+    zone: "South South",
+    lgas: ["Akoko-Edo", "Egor", "Esan Central", "Esan North-East", "Esan South-East", "Esan West", "Etsako Central", "Etsako East", "Etsako West", "Igueben", "Ikpoba-Okha", "Oredo", "Orhionmwon", "Ovia North-East", "Ovia South-West", "Owan East", "Owan West", "Uhunmwonde"],
+    crops: ["Rubber", "Cocoa", "Oil Palm", "Cassava", "Yams"],
+    minerals: ["Limestone", "Gold", "Gypsum", "Marble", "Crude Oil"],
+    areaSqKm: 17802,
+    populationEstimate: "4,235,600",
+    festival: "Igue Festival",
+    description: "The historical foundation of the elegant Benin Empire, Edo State is rich with ancient arts, legendary brass carvings, and deep cultural heritage that remains exceptionally influential globally.",
+    touristAttraction: "Royal Palace of the Oba of Benin"
+  },
+  {
+    name: "Ekiti",
+    capital: "Ado-Ekiti",
+    slogan: "Land of Honour and Integrity",
+    zone: "South West",
+    lgas: ["Ado-Ekiti", "Efon", "Ekiti East", "Ekiti South-West", "Ekiti West", "Emure", "Gbonyin", "Ido-Osi", "Ijero", "Ikere", "Ikole", "Ilejemeje", "Irepodun/Ifelodun", "Ise/Orun", "Moba", "Oye"],
+    crops: ["Cocoa", "Kola nut", "Yam", "Cassava", "Rice"],
+    minerals: ["Feldspar", "Bauxite", "Clay", "Quartzite", "Granite"],
+    areaSqKm: 6353,
+    populationEstimate: "3,270,800",
+    festival: "Osun Festival",
+    description: "Famously known for producing the highest concentration of academic professors in Nigeria, Ekiti is also a land of breathtaking hills, lush rain-forests, and thermal spring resorts.",
+    touristAttraction: "Ikogosi Warm Springs (Where Warm and Cold Springs Meet)"
+  },
+  {
+    name: "Enugu",
+    capital: "Enugu",
+    slogan: "Coal City State",
+    zone: "South East",
+    lgas: ["Aninri", "Awgu", "Enugu East", "Enugu North", "Enugu South", "Ezeagu", "Igbo Etiti", "Igbo Eze North", "Igbo Eze South", "Isi Uzo", "Nkanu East", "Nkanu West", "Nsukka", "Oji River", "Udenu", "Udi", "Uzo-Uwani"],
+    crops: ["Yam", "Cassava", "Rice", "Palm Oil", "Cashew"],
+    minerals: ["Coal", "Limestone", "Alum", "Iron Ore", "Lead"],
+    areaSqKm: 7161,
+    populationEstimate: "4,411,100",
+    festival: "Mmanwu Masquerade Festival",
+    description: "Built on a history of coal mining, Enugu was the historic capital of the old Eastern Region. It features breathtaking hills, green scenery, and is a major hub of Nigerian cinema and media production.",
+    touristAttraction: "Udi Hills & Ngwo Pine Forest"
+  },
+  {
+    name: "FCT - Abuja",
+    capital: "Abuja",
+    slogan: "Center of Unity",
+    zone: "North Central",
+    lgas: ["Abaji", "Bwari", "Gwagwalada", "Kuje", "Kwali", "Municipal Area Council (AMAC)"],
+    crops: ["Yam", "Maize", "Beans", "Millet", "Guinea Corn"],
+    minerals: ["Gold", "Marble", "Tantalite", "Tin", "Clay"],
+    areaSqKm: 7315,
+    populationEstimate: "3,561,000",
+    festival: "Abuja Carnival",
+    description: "The Federal Capital Territory was intentionally designed in the 1980s in the geographical center of Nigeria to promote national unity, replacing Lagos as Capital in 1991.",
+    touristAttraction: "Zuma Rock & Millennium Park"
+  },
+  {
+    name: "Gombe",
+    capital: "Gombe",
+    slogan: "Jewel in the Savannah",
+    zone: "North East",
+    lgas: ["Akko", "Balanga", "Billiri", "Dukku", "Funakaye", "Gombe", "Kaltungo", "Kwami", "Nafada", "Shongom", "Yamaltu/Deba"],
+    crops: ["Cotton", "Groundnuts", "Sorghum", "Tomatoes", "Cowpea"],
+    minerals: ["Coal", "Limestone", "Gypsum", "Clay", "Diatomite"],
+    areaSqKm: 18768,
+    populationEstimate: "3,256,500",
+    festival: "Gombe Durbar",
+    description: "Located in the savannah basin, Gombe acts with highly linked agricultural infrastructure, boasting massive cotton production and acting as crucial transport gateway for the North-East.",
+    touristAttraction: "Tomb of Bubayero (Founder of Gombe Emirate)"
+  },
+  {
+    name: "Imo",
+    capital: "Owerri",
+    slogan: "Eastern Heartland",
+    zone: "South East",
+    lgas: ["Aboh Mbaise", "Ahiazu Mbaise", "Ehime Mbano", "Ezinihitte Mbaise", "Ideato North", "Ideato South", "Ihitte/Uboma", "Ikeduru", "Isiala Mbano", "Isu", "Mbaitoli", "Ngor Okpala", "Njaba", "Nkwerre", "Nwangele", "Obowo", "Oguta", "Ohaji/Egbema", "Okigwe", "Orlu", "Orsu", "Oru East", "Oru West", "Owerri Municipal", "Owerri North", "Owerri West", "Unuimo"],
+    crops: ["Palm Oil", "Cassava", "Cocoa", "Yam", "Rubber"],
+    minerals: ["Crude Oil", "Natural Gas", "Lead", "Zinc", "White Clay"],
+    areaSqKm: 5530,
+    populationEstimate: "5,408,800",
+    festival: "Oru Owerri Festival",
+    description: "Set in core Igboland, Imo is renowned for its highly educated population, lively hospitality industry centered around Owerri, and rich cultural displays like the famous Oguta Blue Lake.",
+    touristAttraction: "Oguta Lake Resort"
+  },
+  {
+    name: "Jigawa",
+    capital: "Dutse",
+    slogan: "The New World",
+    zone: "North West",
+    lgas: ["Auyo", "Babura", "Biriniwa", "Birnin Kudu", "Buji", "Dutse", "Gagarawa", "Garki", "Gumel", "Guri", "Gwaram", "Gwiwa", "Hadejia", "Jahun", "Kafin Hausa", "Kazaure", "Kiri Kasama", "Kiyawa", "Maigatari", "Malam Madori", "Miga", "Ringim", "Roni", "Sule Tankarkar", "Taura", "Yankwashi"],
+    crops: ["Sesame Seeds", "Groundnuts", "Millet", "Rice", "Wheat"],
+    minerals: ["Kaolin", "Silica Sand", "Iron Ore", "Copper"],
+    areaSqKm: 22605,
+    populationEstimate: "5,828,200",
+    festival: "Hadejia Durbar Festival",
+    description: "Characterized by rolling sand dunes and rich river plains, Jigawa State is Nigeria's leading center for sesame seed processing, with Dutse displaying a unique landscape of gigantic rocks.",
+    touristAttraction: "Birnin Kudu Rock Paintings"
+  },
+  {
+    name: "Kaduna",
+    capital: "Kaduna",
+    slogan: "Centre of Learning",
+    zone: "North West",
+    lgas: ["Birnin Gwari", "Chikun", "Giwa", "Igabi", "Ikara", "Jaba", "Jema'a", "Kachia", "Kaduna North", "Kaduna South", "Kagarko", "Kajuru", "Kaura", "Kauru", "Kubau", "Kudan", "Lere", "Makarfi", "Sabon Gari", "Sanga", "Soba", "Zangon Kataf", "Zaria"],
+    crops: ["Ginger", "Maize", "Cotton", "Groundnuts", "Sorghum"],
+    minerals: ["Gold", "Graphite", "Asbestos", "Clay", "Kyanite"],
+    areaSqKm: 46053,
+    populationEstimate: "8,252,400",
+    festival: "Tuk-Ham Cultural Festival",
+    description: "A paramount political and military center in Northern Nigeria, Kaduna is home to ancient Zaria Emirate, the Nok culture archaeological sites, and numerous institutions of higher learning.",
+    touristAttraction: "Nok Culture Archeological Site & Kajuru Castle"
+  },
+  {
+    name: "Kano",
+    capital: "Kano",
+    slogan: "Centre of Commerce",
+    zone: "North West",
+    lgas: ["Ajingi", "Albasu", "Bagwai", "Bebeji", "Bichi", "Bunkure", "Dala", "Dambatta", "Dawakin Kudu", "Dawakin Tofa", "Doguwa", "Fagge", "Gabasawa", "Garko", "Garun Mallam", "Gaya", "Gezawa", "Gwale", "Gwarzo", "Kabo", "Kano Municipal", "Karaye", "Kibiya", "Kirma", "Kumbotso", "Kunchi", "Kura", "Madobi", "Minjibir", "Nasarawa", "Rano", "Rimin Gado", "Rogo", "Shanono", "Sumaila", "Takai", "Tarauni", "Tofa", "Tsanyawa", "Tudun Wada", "Ungogo", "Warawa", "Wudil"],
+    crops: ["Groundnuts", "Rice", "Wheat", "Soybeans", "Chili Pepper"],
+    minerals: ["Tin", "Kaolin", "Granite", "Silica Sand"],
+    areaSqKm: 20131,
+    populationEstimate: "13,076,900",
+    festival: "Eid-el-Kabir Durbar Festival (Highly Celebrated)",
+    description: "The commercial heart of Northern Nigeria for over a thousand years, Kano originally gained fame during the trans-Saharan trade for its famous indigo dye pits, leatherworks, and groundnut pyramids.",
+    touristAttraction: "Kofor Mata Dye Pits & Kurmi Market"
+  },
+  {
+    name: "Katsina",
+    capital: "Katsina",
+    slogan: "Home of Hospitality",
+    zone: "North West",
+    lgas: ["Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dandume", "Danja", "Dan Musa", "Daura", "Dutsin-Ma", "Faskari", "Funtua", "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", "Katsina", "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", "Mashi", "Matazu", "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"],
+    crops: ["Cotton", "Groundnuts", "Millet", "Sorghum", "Cowpea"],
+    minerals: ["Kaolin", "Marble", "Gold", "Asbestos", "Silica"],
+    areaSqKm: 24192,
+    populationEstimate: "7,831,300",
+    festival: "Daura Durbar Festival",
+    description: "A prominent seat of Islamic scholarship and Hausa culture, Katsina is home to legendary Gobarau Minaret and the Daura Emirate, mythical origin source of the seven Hausa states.",
+    touristAttraction: "Gobarau Minaret & Kusugu Well, Daura"
+  },
+  {
+    name: "Kebbi",
+    capital: "Birnin Kebbi",
+    slogan: "Land of Equity",
+    zone: "North West",
+    lgas: ["Aleiro", "Arewa Dandi", "Argungu", "Bagudo", "Birnin Kebbi", "Bunza", "Dandi", "Fakai", "Gwandu", "Jega", "Kalgo", "Koko/Besse", "Maiyama", "Ngaski", "Sakaba", "Shanga", "Suru", "Wasagu/Danko", "Yauri", "Zuru"],
+    crops: ["Rice", "Wheat", "Onions", "Groundnuts", "Beans"],
+    minerals: ["Gold", "Salt", "Clay", "Gypsum", "Limestone"],
+    areaSqKm: 36800,
+    populationEstimate: "4,440,000",
+    festival: "Argungu International Fishing and Cultural Festival",
+    description: "Kebbi is famous for its pioneering agricultural programs, particularly massive mechanized rice farming, alongside the ancient, world-famous Argungu Fishing Festival on the Rima River.",
+    touristAttraction: "Argungu Fishing Festival Site & Kebbi Museum"
+  },
+  {
+    name: "Kogi",
+    capital: "Lokoja",
+    slogan: "The Confluence State",
+    zone: "North Central",
+    lgas: ["Adavi", "Ajaokuta", "Ankpa", "Bassa", "Dekina", "Ibaji", "Idah", "Igalamela-Odolu", "Ijumu", "Kabba/Bunu", "Kogi", "Lokoja", "Mopa-Muro", "Ofu", "Ogori/Magongo", "Okehi", "Okene", "Olamaboro", "Omala", "Yagba East", "Yagba West"],
+    crops: ["Cashew", "Cassava", "Millet", "Maize", "Yam"],
+    minerals: ["Iron Ore", "Coal", "Limestone", "Marble", "Tantalite"],
+    areaSqKm: 29833,
+    populationEstimate: "4,473,500",
+    festival: "Italo Festival (Idah)",
+    description: "Kogi is the historic setting of the confluence where the golden Niger and Benue Rivers meet. It hosts Nigeria's largest iron and steel complex in Ajaokuta and massive limestone deposits.",
+    touristAttraction: "Confluence of Rivers Niger & Benue, Lokoja"
+  },
+  {
+    name: "Kwara",
+    capital: "Ilorin",
+    slogan: "State of Harmony",
+    zone: "North Central",
+    lgas: ["Asa", "Baruten", "Edu", "Ekiti", "Ifelodun", "Ilorin East", "Ilorin South", "Ilorin West", "Irepodun", "Isin", "Kaiama", "Moro", "Offa", "Oke-Ero", "Oyun", "Pategi"],
+    crops: ["Yam", "Cassava", "Maize", "Sorghum", "Sugarcane"],
+    minerals: ["Tantalite", "Clay", "Kaolin", "Limestone", "Quartz"],
+    areaSqKm: 36825,
+    populationEstimate: "3,192,900",
+    festival: "Pategi Regatta Festival",
+    description: "A cultural bridge state merging Northern and Southern traditions, Kwara features a highly diverse population living in harmony, with Ilorin acting as a massive centers of craft and weaving.",
+    touristAttraction: "Esie Museum (Soapstone Sculptures Heritage)"
+  },
+  {
+    name: "Lagos",
+    capital: "Ikeja",
+    slogan: "Centre of Excellence",
+    zone: "South West",
+    lgas: ["Agege", "Ajeromi-Ifelodun", "Alimosho", "Amuwo-Odofin", "Apapa", "Badagry", "Epe", "Eti-Osa", "Ibeju-Lekki", "Ifako-Ijaiye", "Ikeja", "Ikorodu", "Kosofe", "Lagos Island", "Lagos Mainland", "Mushin", "Ojo", "Oshodi-Isolo", "Shomolu", "Surulere"],
+    crops: ["Coconut", "Vegetables", "Fish Farm Products"],
+    minerals: ["Silica Sand", "Clay", "Natural Gas", "Crude Oil"],
+    areaSqKm: 3577,
+    populationEstimate: "14,862,000",
+    festival: "Eyo Festival (Adamumu Orisha Play)",
+    description: "Though Nigeria's smallest state geographically, Lagos is a mega-city hosting the nation's principal financial, media, and maritime infrastructure, generating one of West Africa's largest economies.",
+    touristAttraction: "National Theatre, Lekki Conservation Centre & Badagry Black Heritage Museum"
+  },
+  {
+    name: "Nasarawa",
+    capital: "Lafia",
+    slogan: "Home of Solid Minerals",
+    zone: "North Central",
+    lgas: ["Akwanga", "Awe", "Doma", "Karu", "Keana", "Keffi", "Kokona", "Lafia", "Nasarawa", "Nasarawa Egon", "Obi", "Toto", "Wamba"],
+    crops: ["Sesame Seeds", "Yam", "Cassava", "Maize", "Rice"],
+    minerals: ["Tin", "Tantalite", "Salt", "Coal", "Clay", "Baryte"],
+    areaSqKm: 27117,
+    populationEstimate: "2,523,400",
+    festival: "Odu Cultural Festival",
+    description: "Bordering Abuja, Nasarawa has massive deposit of mineral wealth. It boasts breathtaking physical landforms including Farin Ruwa Falls, which features one of Africa's highest water drop cascades.",
+    touristAttraction: "Farin Ruwa Waterfalls & Eggon Hills"
+  },
+  {
+    name: "Niger",
+    capital: "Minna",
+    slogan: "The Power State",
+    zone: "North Central",
+    lgas: ["Agaie", "Agwara", "Bida", "Borgu", "Bosso", "Chanchaga", "Gbako", "Gurara", "Katcha", "Kontagora", "Lapai", "Lavun", "Magama", "Mariga", "Mashegu", "Minna", "Mokwa", "Munya", "Paikoro", "Rafi", "Rijau", "Shiroro", "Suleja", "Tafa", "Wushishi"],
+    crops: ["Rice", "Yam", "Millet", "Cowpea", "Groundnuts"],
+    minerals: ["Gold", "Talc", "Granite", "Iron Ore", "Coal"],
+    areaSqKm: 76363,
+    populationEstimate: "5,556,200",
+    festival: "Gani Cultural Festival",
+    description: "Acclaimed as the 'Power State' because it houses Nigeria's premier hydroelectric generating stations in Kainji, Shiroro, and Jebba, Niger is also the largest state in land size.",
+    touristAttraction: "Gurara Waterfalls & Kainji Lake National Park"
+  },
+  {
+    name: "Ogun",
+    capital: "Abeokuta",
+    slogan: "Gateway State",
+    zone: "South West",
+    lgas: ["Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Egbado North", "Egbado South", "Ewekoro", "Ifo", "Ijebu East", "Ijebu North", "Ijebu North East", "Ijebu Ode", "Ikenne", "Imeko-Afon", "Ipokia", "Obafemi-Owode", "Odeda", "Odogbolu", "Ogun Waterside", "Remo North", "Shagamu"],
+    crops: ["Cocoa", "Kola nut", "Cassava", "Rubber", "Rice"],
+    minerals: ["Limestone", "Phosphate", "Clay", "Silica Sand", "Gypsum"],
+    areaSqKm: 16762,
+    populationEstimate: "5,217,700",
+    festival: "Ojude Oba Festival (Highly Celebrated)",
+    description: "The gateway to the rest of Nigeria, Ogun State is characterized by its massive industrial estates in Ota and its famous natural formations, particularly Olumo Rock which sheltered ancient Yoruba refugees.",
+    touristAttraction: "Olumo Rock, Abeokuta"
+  },
+  {
+    name: "Ondo",
+    capital: "Akure",
+    slogan: "Sunshine State",
+    zone: "South West",
+    lgas: ["Akoko North-East", "Akoko North-West", "Akoko South-East", "Akoko South-West", "Akure North", "Akure South", "Ese Odo", "Idanre", "Ifedore", "Iaje", "Ile Oluji/Okeigbo", "Irele", "Odigbo", "Okitipupa", "Oba", "Ondo East", "Ondo West", "Ose", "Owo"],
+    crops: ["Cocoa (Nigeria's Highest Producer)", "Rubber", "Oil Palm", "Yam"],
+    minerals: ["Bitumen (Largest Deposit in Africa)", "Crude Oil", "Natural Gas", "Silica Sand"],
+    areaSqKm: 15500,
+    populationEstimate: "4,671,100",
+    festival: "Mare Festival (Idanre)",
+    description: "The largest producer of cocoa in Nigeria, Ondo State boasts beautiful highlands including the breathtaking hills of Idanre and massive beach shorelines rich with natural bitumen deposits.",
+    touristAttraction: "Idanre Hills (Stunning Historic Mountain Village)"
+  },
+  {
+    name: "Osun",
+    capital: "Osogbo",
+    slogan: "Land of Virtue (Ipinle Omoluabi)",
+    zone: "South West",
+    lgas: ["Atakunmosa East", "Atakunmosa West", "Ayedaade", "Ayedire", "Boluwaduro", "Boripe", "Ede North", "Ede South", "Egbedore", "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", "Ifedayo", "Ifelodun", "Ila", "Ilesa East", "Ilesa West", "Irepodun", "Iredu", "Isokan", "Iwo", "Obokun", "Odo Otin", "Ola Oluwa", "Olorunda", "Oriade", "Orolu", "Osogbo"],
+    crops: ["Cocoa", "Kola nut", "Palm Oil", "Yam", "Cassava"],
+    minerals: ["Gold", "Kaolin", "Talc", "Feldspar", "Granite"],
+    areaSqKm: 9251,
+    populationEstimate: "4,705,600",
+    festival: "Osun-Osogbo Festival (UNESCO World Heritage Celebration)",
+    description: "Osun State is the ancient homeland of Yoruba culture, holding Ile-Ife, the mythological cradle of humanity. It hosts the ancient Osun-Osogbo Sacred Grove, untouched for centuries.",
+    touristAttraction: "Osun-Osogbo Sacred Grove (UNESCO World Heritage Site)"
+  },
+  {
+    name: "Oyo",
+    capital: "Ibadan",
+    slogan: "Pace Setter State",
+    zone: "South West",
+    lgas: ["Afijio", "Akinyele", "Atiba", "Atisbo", "Ibadan North", "Ibadan North-East", "Ibadan North-West", "Ibadan South-East", "Ibadan South-West", "Ibarapa Central", "Ibarapa East", "Ibarapa North", "Ido", "Irepo", "Iseyin", "Itesiwaju", "Iwajowa", "Kajola", "Lagelu", "Ogbomosho North", "Ogbomosho South", "Ogo Oluwa", "Olorunsogo", "Oluyole", "Ona Ara", "Orelope", "Ori Ire", "Oyo East", "Oyo West", "Saki East", "Saki West", "Surulere"],
+    crops: ["Cocoa", "Cashew", "Cassava", "Yam", "Tobacco", "Maize"],
+    minerals: ["Marble", "Clay", "Talc", "Gold", "Granite"],
+    areaSqKm: 28454,
+    populationEstimate: "7,840,800",
+    festival: "Oke Ibadan Festival",
+    description: "Oyo State hosts Ibadan, West Africa's largest indigenous city. Rich in educational milestones, it had Nigeria's first university, TV station, and skyscrapers.",
+    touristAttraction: "Ado Awaye Suspended Lake (One of Only Two in the World)"
+  },
+  {
+    name: "Plateau",
+    capital: "Jos",
+    slogan: "Home of Peace and Tourism",
+    zone: "North Central",
+    lgas: ["Barkin Ladi", "Bassa", "Jos East", "Jos North", "Jos South", "Kanam", "Kanke", "Langtang North", "Langtang South", "Mangu", "Mikang", "Pankshin", "Qua'an Pan", "Riyom", "Shendam", "Wase"],
+    crops: ["Irish Potatoes", "Strawberries", "Vegetables", "Acha (Fonio)", "Apples"],
+    minerals: ["Tin", "Columbite", "Lead", "Zinc", "Kaolin", "Quartz"],
+    areaSqKm: 30913,
+    populationEstimate: "4,200,400",
+    festival: "Yem Cultural Festival",
+    description: "High on the Jos Plateau, this state boasts a temperate climate completely unique to Nigeria, featuring spectacular rock hills, waterfalls, and rich mining history.",
+    touristAttraction: "Jos Wildlife Park, Shere Hills & Wase Rock"
+  },
+  {
+    name: "Rivers",
+    capital: "Port Harcourt",
+    slogan: "Treasure Base of the Nation",
+    zone: "South South",
+    lgas: ["Abua/Odual", "Ahoada East", "Ahoada West", "Akuku Toru", "Andoni", "Asari-Toru", "Bonny", "Degema", "Eleme", "Emuoha", "Etche", "Gokana", "Ikwerre", "Khana", "Obio/Akpor", "Ogba/Egbema/Ndoni", "Ogu/Bolo", "Okrika", "Omuma", "Opobo/Nkoro", "Port Harcourt Municipal", "Tai", "Oyigbo"],
+    crops: ["Palm Oil", "Coconut", "Plantain", "Cassava", "Rubber"],
+    minerals: ["Crude Oil", "Natural Gas", "Silica Sand", "Clay"],
+    areaSqKm: 11077,
+    populationEstimate: "7,303,900",
+    festival: "Rivers State Carnival (Carniriv)",
+    description: "Known for its oil-rich economy, Rivers hosts the garden city Port Harcourt, extensive coastal ports, and rich delta wetlands supporting diverse fishing populations.",
+    touristAttraction: "Bonny Island Beaches & Finima Nature Park"
+  },
+  {
+    name: "Sokoto",
+    capital: "Sokoto",
+    slogan: "Seat of the Caliphate",
+    zone: "North West",
+    lgas: ["Binji", "Bodinga", "Dange Shuni", "Gada", "Goronyo", "Gudu", "Gwadabawa", "Illela", "Isa", "Kware", "Kebbe", "Rabah", "Sabon Birni", "Shagari", "Silame", "Sokoto North", "Sokoto South", "Tambuwal", "Tangaza", "Tureta", "Wamako", "Wurno", "Yabo"],
+    crops: ["Onions", "Garlic", "Rice", "Wheat", "Sorghum", "Cowpea"],
+    minerals: ["Limestone (Fills Nigeria's Cement Plants)", "Gypsum", "Phosphate", "Clay"],
+    areaSqKm: 25973,
+    populationEstimate: "5,000,000",
+    festival: "Sokoto Durbar",
+    description: "The spiritual capital of Nigeria's Muslims, Sokoto was established in 1809 as the center of Usman Dan Fodio's legendary Sokoto Caliphate, preserving beautiful medieval Islamic history.",
+    touristAttraction: "Sultan of Sokoto Palace & Waziri Junaidu History Bureau"
+  },
+  {
+    name: "Taraba",
+    capital: "Jalingo",
+    slogan: "Nature's Gift to the Nation",
+    zone: "North East",
+    lgas: ["Ardo Kola", "Bali", "Donga", "Gashaka", "Gassol", "Ibi", "Jalingo", "Karim Lamido", "Kurmi", "Lau", "Sardauna", "Takum", "Ussa", "Wukari", "Yorro", "Zing"],
+    crops: ["Tea (Mambilla)", "Coffee", "Cocoa", "Ginger", "Rice"],
+    minerals: ["Barite", "Lead", "Zinc", "Coal", "Bauxite"],
+    areaSqKm: 55920,
+    populationEstimate: "3,066,800",
+    festival: "Nwonyo Fishing Festival (Ibi)",
+    description: "Formed in 1991, Taraba has vast rolling grasslands, featuring the cold Mambilla Plateau (Nigeria's highest highland) which grows the nation's premier agricultural tea exports.",
+    touristAttraction: "Mambilla Plateau (Highest Point in Nigeria) & Gashaka Gumti National Park"
+  },
+  {
+    name: "Yobe",
+    capital: "Damaturu",
+    slogan: "Pride of the Sahel",
+    zone: "North East",
+    lgas: ["Bade", "Bursari", "Damaturu", "Fika", "Fune", "Geidam", "Gujba", "Gulani", "Jakusko", "Karasuwa", "Machina", "Nangere", "Nguru", "Potiskum", "Tarmuwa", "Yunusari", "Yusufari"],
+    crops: ["Millet", "Sorghum", "Gum Arabic", "Sesame Seeds", "Groundnuts"],
+    minerals: ["Diatomite", "Gypsum", "Kaolin", "Slate"],
+    areaSqKm: 45502,
+    populationEstimate: "3,294,100",
+    festival: "Bade Fishing Festival",
+    description: "Yobe is the premier producer of high-grade gum arabic and sesame in the Sahel. It hosts Nigeria's largest livestock market in Potiskum, with the historic Fika Emirate Palace displaying architectural mastery.",
+    touristAttraction: "Dufuna Canoe (Africa's Oldest Canoe, over 8000 years old)"
+  },
+  {
+    name: "Zamfara",
+    capital: "Gusau",
+    slogan: "Farming is Our Pride",
+    zone: "North West",
+    lgas: ["Anka", "Bakura", "Birnin Magaji/Kiyaw", "Bukkuyum", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Chafe", "Zurmi"],
+    crops: ["Cotton", "Groundnuts", "Sorghum", "Millet", "Maize"],
+    minerals: ["Gold (Nigeria's Highest Concentration)", "Lead", "Chromite", "Kaolin"],
+    areaSqKm: 39762,
+    populationEstimate: "4,515,400",
+    festival: "Zamfara Cultural Carnival",
+    description: "Zamfara is characterized as an highly crucial agricultural supply basin, but holds the largest deposits of artisanal and industrial high-grade gold mines across the nation.",
+    touristAttraction: "Kwatarkwashi Rock & Springs"
   }
-  // Try to find a match in NIGERIAN_STATES
-  const found = NIGERIAN_STATES.find(s => s.toLowerCase() === clean.toLowerCase() || s.toLowerCase().startsWith(clean.toLowerCase()));
-  return found || clean;
-};
-
+];

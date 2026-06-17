@@ -684,5 +684,34 @@ export const PRESETS_DB: Record<string, PresetConfig> = {
 };
 
 export function getPresetConfig(stylePreset: string): PresetConfig {
-  return PRESETS_DB[stylePreset] || PRESETS_DB['Imo Heartland (Green teeth border)'];
+  const original = PRESETS_DB[stylePreset] || PRESETS_DB['Imo Heartland (Green teeth border)'];
+  
+  // Decide dynamically based on the stylePreset title if it represents a Green or Black theme
+  // This alternates between deep black-and-white high-contrast, and vibrant white-and-green
+  const isGreen = stylePreset.toLowerCase().includes('green') || 
+                  stylePreset.toLowerCase().includes('oguta') || 
+                  stylePreset.toLowerCase().includes('heartland') ||
+                  stylePreset.toLowerCase().includes('savannah') ||
+                  stylePreset.toLowerCase().includes('harmony') ||
+                  stylePreset.toLowerCase().includes('spring') ||
+                  stylePreset.toLowerCase().includes('tourism') ||
+                  stylePreset.toLowerCase().includes('farming') ||
+                  stylePreset.toLowerCase().includes('knowledge') ||
+                  stylePreset.toLowerCase().includes('confluence') ||
+                  stylePreset.length % 2 === 0;
+
+  const primary = isGreen ? '#00c060' : '#000000';
+  
+  return {
+    ...original,
+    primaryColor: primary,
+    textColorClass: isGreen ? 'text-[#00c060]' : 'text-black',
+    borderColorClass: isGreen ? 'border-[#00c060]' : 'border-black',
+    fillColorClass: isGreen ? 'fill-[#00c060]' : 'fill-black',
+    borderHex: primary,
+    teethColorHex: primary,
+    bannerColors: ['#000000', '#ffffff', '#00c060'],
+    stampColorClass: isGreen ? 'border-[#00c060]/50 text-[#00c060]/60' : 'border-black/50 text-black/60',
+    sealColorHex: primary
+  };
 }

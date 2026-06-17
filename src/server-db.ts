@@ -185,12 +185,12 @@ export class ServerDB {
         },
         {
           id: 'student-demo',
-          name: 'Al-Salam',
+          name: 'AL-SALAM NNACHI',
           email: 'student@edudocs.ai',
           phone: '+234 90 9876 5432',
           role: 'user',
           verified: true,
-          walletBalance: 2500,
+          walletBalance: 10500,
           createdAt: new Date().toISOString()
         }
       ];

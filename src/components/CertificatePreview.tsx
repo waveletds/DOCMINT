@@ -1,4 +1,3 @@
-import React from 'react';
 import { GeneratedDocument } from '../types.js';
 import { QrCode, Camera } from 'lucide-react';
 import { getPresetConfig } from '../state-presets.js';
@@ -24,7 +23,6 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
   const autonomousCommunity = inputs.autonomousCommunity || '';
   const traditionalRuler = inputs.traditionalRuler || '';
   const certificateNo = inputs.certificateNo || 'IM/LO/ABJ/2063';
-  const liaisonOffice = inputs.liaisonOffice || '';
   const officerName = inputs.officerName || 'Hon. Anthony Njoku';
   const officerTitle = inputs.officerTitle || 'Liaison Officer';
   
@@ -103,7 +101,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
   const renderDraftWatermark = () => {
     if (doc.addWatermark && !doc.paid) {
       return (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-28deg] text-red-550/15 font-sans font-black text-4xl sm:text-5xl text-center select-none pointer-events-none uppercase tracking-widest z-30 whitespace-nowrap">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-28deg] text-black/10 font-sans font-black text-4xl sm:text-5xl text-center select-none pointer-events-none uppercase tracking-widest z-30 whitespace-nowrap">
           Draft Preview - No Authority
         </div>
       );
@@ -181,7 +179,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               {/* Center Crest */}
               <div className="col-span-6 flex justify-center">
                 <div className="relative">
-                  <svg viewBox="0 0 100 100" className="w-16 h-16 text-amber-500 fill-current">
+                  <svg viewBox="0 0 100 100" className="w-16 h-16 text-black fill-current">
                      <path d="M50,5 L80,25 L80,65 L50,95 L20,65 L20,25 Z" fill={presetConfig.primaryColor} />
                      <path d="M50,10 L75,28 L75,62 L50,88 L25,62 L25,28 Z" fill="#ffffff" />
                      <circle cx="50" cy="48" r="14" fill={presetConfig.primaryColor} />
@@ -201,17 +199,17 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
 
             {/* Header Title */}
             <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900 font-sans" style={{ color: presetConfig.primaryColor }}>
+              <h1 className="text-xl sm:text-2xl font-royal font-black uppercase tracking-tight text-neutral-900" style={{ color: presetConfig.primaryColor }}>
                 GOVERNMENT OF {presetConfig.stateName} OF NIGERIA
               </h1>
-              <p className="text-xs font-black text-[#dc2626] uppercase tracking-widest font-sans">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest font-sans" style={{ color: presetConfig.primaryColor }}>
                 ({presetConfig.slogan})
               </p>
             </div>
 
             {/* Document Red Title */}
             <div className="mt-4 mb-5">
-              <h3 className="text-lg sm:text-xl font-bold text-red-650 uppercase tracking-tight border-y-2 border-red-200 py-1 max-w-md mx-auto font-sans">
+              <h3 className="text-lg sm:text-xl font-royal font-black uppercase tracking-widest border-y-2 py-1 px-4 max-w-md mx-auto" style={{ color: presetConfig.primaryColor, borderColor: presetConfig.primaryColor }}>
                 {certTitle}
               </h3>
             </div>
@@ -231,7 +229,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             {isBirthCert ? (
               <div className="space-y-3.5 max-w-lg text-left font-serif text-sm">
                 <p className="font-medium text-neutral-800">
-                  This is to certify and attest that: <span className="font-sans font-extrabold text-black uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{fullName} ({gender})</span>
+                  This is to certify and attest that: <span className="font-royal italic font-black text-black text-lg uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{fullName} ({gender})</span>
                 </p>
                 <p className="text-neutral-800">
                   was born at: <span className="font-bold underline text-black">{bornPlace}</span>
@@ -252,7 +250,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             ) : (
               <div className="space-y-4 max-w-lg text-left font-serif">
                 <p className="text-base font-medium text-neutral-800">
-                  This is to certify that <span className="font-sans font-extrabold text-black uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{gender}. {fullName}</span>
+                  This is to certify that <span className="font-royal italic font-black text-black text-lg uppercase underline decoration-2 px-1" style={{ textDecorationColor: presetConfig.primaryColor }}>{gender}. {fullName}</span>
                 </p>
 
                 <p className="text-neutral-800">
@@ -282,7 +280,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           <div className="my-3 text-center">
             <div className="border border-neutral-300 p-1.5 max-w-sm mx-auto text-[9px] uppercase font-bold bg-neutral-50/80 text-neutral-500 leading-normal">
               This official certificate is generated under direct municipal administrative oversight and is<br/>
-              <span className="text-red-650 font-black">NOT TRANSFERABLE</span>
+              <span className="font-black" style={{ color: presetConfig.primaryColor }}>NOT TRANSFERABLE</span>
             </div>
           </div>
 
@@ -364,22 +362,22 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
 
             {/* LGA Bold Blue header with double underlines */}
             <div className="space-y-0.5 text-center">
-              <h1 className="text-xl sm:text-2xl font-black uppercase tracking-normal text-[#1d3a5f] border-b border-[#1d3a5f]/40 pb-0.5 inline-block font-sans">
+              <h1 className="text-xl sm:text-2xl font-black uppercase tracking-normal border-b pb-0.5 inline-block font-sans" style={{ color: presetConfig.primaryColor, borderBottomColor: presetConfig.primaryColor }}>
                 {lga.toUpperCase()} LOCAL GOVERNMENT
               </h1>
-              <p className="text-xs sm:text-sm font-bold text-[#dc2626] tracking-widest uppercase font-sans">
+              <p className="text-xs sm:text-sm font-bold tracking-widest uppercase font-sans" style={{ color: presetConfig.primaryColor }}>
                 {presetConfig.stateName}, NIGERIA
               </p>
             </div>
 
             {/* OHLG Reference block */}
-            <div className="mt-3 text-center border-y border-[#eedfa2] py-1 max-w-sm mx-auto font-sans text-[10px] text-neutral-800">
+            <div className="mt-3 text-center border-y border-neutral-200 py-1 max-w-sm mx-auto font-sans text-[10px] text-neutral-800">
               <span className="font-semibold text-[9.5px]">OHLG No:</span> <b className="font-mono bg-white px-1 border border-neutral-200">{certificateNo}</b> &nbsp;&bull;&nbsp; <span className="font-semibold">Date:</span> <b className="font-mono">{docDate.toUpperCase()}</b>
             </div>
 
             {/* Gothic redviolet title exactly like pic */}
             <div className="my-4">
-              <h3 className="text-2xl font-semibold italic text-[#8d0e34] underline decoration-amber-600/70 py-1.5 font-serif tracking-normal">
+              <h3 className="text-2xl font-semibold italic py-1.5 font-serif tracking-normal border-b border-black/10 inline-block" style={{ color: presetConfig.primaryColor }}>
                 {isBirthCert ? 'Attestation of Birth' : 'Certificate of Origin'}
               </h3>
             </div>
@@ -391,8 +389,8 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               This is to certify that
             </p>
 
-            <div className="my-3 py-1 border-b-2 border-dashed border-[#1d3a5f]/40">
-              <span className="text-xl sm:text-2xl font-black block text-[#0f172a] uppercase font-sans tracking-wide">
+            <div className="my-3 py-1 border-b-2 border-dashed" style={{ borderBottomColor: `${presetConfig.primaryColor}50` }}>
+              <span className="text-xl sm:text-2xl font-royal italic font-black block text-black uppercase tracking-wide">
                 {isBirthCert ? fullName : `${gender}. ${fullName}`}
               </span>
             </div>
@@ -421,24 +419,24 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             )}
 
             <div className="pt-2">
-              <p className="text-[#a21caf] font-bold italic text-xs leading-relaxed max-w-xs mx-auto">
+              <p className="font-bold italic text-xs leading-relaxed max-w-xs mx-auto" style={{ color: presetConfig.primaryColor }}>
                 "You are requested to give Him/her the necessary assistance He/She may require."
               </p>
             </div>
           </div>
 
           {/* Bottom Wax seal left, rubber purple stamp right */}
-          <div className="pt-4 border-t border-[#eedfa2] flex justify-between items-center px-4">
+          <div className="pt-4 border-t border-neutral-200 flex justify-between items-center px-4">
             {/* Red Wax Seal Sticker */}
-            <div className="w-16 h-16 rounded-full bg-red-700 shadow-md border-2 border-amber-400 flex items-center justify-center text-white text-center text-[7px] font-bold p-1 leading-none select-none shrink-0 rotate-[8deg]">
-              <div className="rounded-full border border-dashed border-amber-500 w-full h-full flex flex-col justify-center items-center">
+            <div className="w-16 h-16 rounded-full shadow-md border-2 border-white/80 flex items-center justify-center text-white text-center text-[7px] font-bold p-1 leading-none select-none shrink-0 rotate-[8deg]" style={{ backgroundColor: presetConfig.primaryColor }}>
+              <div className="rounded-full border border-dashed border-white/50 w-full h-full flex flex-col justify-center items-center">
                 <span>⭐ {lga.toUpperCase().split(' ')[0]} ⭐</span>
                 <span className="text-[5px] mt-0.5 uppercase">LGA SEAL</span>
               </div>
             </div>
 
             {/* Purple rubber stamp */}
-            <div className="relative w-20 h-20 rounded-full border-4 border-double border-purple-500/40 flex flex-col items-center justify-center text-center font-sans text-[7.5px] text-purple-600/50 font-black rotate-[-4deg] select-none bg-white/20">
+            <div className={`relative w-20 h-20 rounded-full border-4 border-double flex flex-col items-center justify-center text-center font-sans text-[7.5px] font-black rotate-[-4deg] select-none bg-white/20 ${presetConfig.stampColorClass || 'border-[#00c060]/40 text-[#00c060]/55'}`}>
               <span className="leading-tight">{lga.toUpperCase().split(' ')[0]} LOCAL</span>
               <span className="text-[9px] border-y border-purple-400/45 my-0.5">APPROVED</span>
               <span className="text-[7.5px] font-mono">{docDate}</span>
@@ -499,7 +497,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           <div className="text-center">
             <div className="flex justify-between items-center px-4 text-xs font-bold text-neutral-500 font-sans tracking-wide">
               <span>Original Copy</span>
-              <span className="text-[#dc2626]">OG-NO: {certificateNo}</span>
+              <span className="font-bold" style={{ color: presetConfig.primaryColor }}>OG-NO: {certificateNo}</span>
             </div>
 
             {/* Large circular coat of arms seal */}
@@ -514,14 +512,14 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               <h1 className="text-lg sm:text-xl font-bold tracking-tight uppercase font-sans" style={{ color: presetConfig.primaryColor }}>
                 GOVERNMENT OF {state.toUpperCase() || presetConfig.stateName}
               </h1>
-              <h2 className="text-xs sm:text-sm font-black uppercase text-[#1d395e] tracking-widest font-sans border-b-2 border-neutral-200 pb-1 max-w-sm mx-auto">
+              <h2 className="text-xs sm:text-sm font-black uppercase tracking-widest font-sans border-b-2 border-neutral-200 pb-1 max-w-sm mx-auto" style={{ color: presetConfig.primaryColor }}>
                 {lga.toUpperCase()} LOCAL GOVERNMENT AREA
               </h2>
             </div>
 
             {/* Giant Red heading */}
             <div className="my-4">
-              <h3 className="text-2xl sm:text-3xl font-black text-red-600 uppercase font-sans tracking-tight leading-none mb-1">
+              <h3 className="text-2xl sm:text-3xl font-black uppercase font-sans tracking-tight leading-none mb-1" style={{ color: presetConfig.primaryColor }}>
                 {isBirthCert ? 'Birth Registration Attestation' : 'Identification Certificate'}
               </h3>
             </div>
@@ -532,7 +530,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             <p className="italic font-sans text-neutral-600 leading-none text-base">This is to certify that</p>
 
             <div className="border-b border-dotted border-black/75 py-1 px-4">
-              <b className="text-xl text-[#111] uppercase font-sans tracking-tight">{isBirthCert ? fullName : `${gender}. ${fullName}`}</b>
+              <b className="text-xl sm:text-2xl text-black uppercase font-royal italic font-black tracking-tight">{isBirthCert ? fullName : `${gender}. ${fullName}`}</b>
             </div>
             <span className="text-[9px] uppercase tracking-widest text-neutral-400 font-sans block mt-0">
               {isBirthCert ? 'NAME OF REGISTERED INDIVIDUAL' : 'NAME OF REGISTRANT (IN BLOCK LETTERS)'}
@@ -568,7 +566,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           {/* Bottom Seals & Double Spiky seals */}
           <div className="pt-2 border-t border-dashed border-neutral-200 flex justify-between items-end">
             {/* Spiky Red Seal Left */}
-            <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[-8deg] relative select-none">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[-8deg] relative select-none" style={{ backgroundColor: presetConfig.primaryColor }}>
               <span className="border-2 border-dashed border-white/40 rounded-full w-full h-full flex items-center justify-center">OFFICIAL SEAL</span>
             </div>
 
@@ -578,12 +576,12 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               <div className="border-t border-neutral-400 pt-1 w-full text-center">
                 <span className="text-blue-700 block text-xs italic font-black h-4 mt-0.5 select-none" style={{ color: presetConfig.primaryColor }}>{officerName}</span>
                 <span className="text-xs font-bold text-neutral-900 block leading-tight">{officerName.toUpperCase()}</span>
-                <span className="text-[9px] text-[#047857] block font-semibold leading-none">{officerTitle}</span>
+                <span className="text-[9px] block font-semibold leading-none" style={{ color: presetConfig.primaryColor }}>{officerTitle}</span>
               </div>
             </div>
 
             {/* Spiky Red Seal Right */}
-            <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[12deg] relative select-none">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[12deg] relative select-none" style={{ backgroundColor: presetConfig.primaryColor }}>
               <span className="border-2 border-dashed border-white/40 rounded-full w-full h-full flex items-center justify-center">APPROVED</span>
             </div>
           </div>
@@ -635,7 +633,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               <svg viewBox="0 0 100 100" className="w-14 h-14 text-neutral-800 fill-current">
                 <path d="M50,10 L90,40 L95,80 L50,95 L5,80 L10,40 Z" fill={presetConfig.primaryColor} />
                 <path d="M50,15 L15,82 L85,82 Z" fill="#ffffff" />
-                <circle cx="50" cy="54" r="10" fill="#cc2525" />
+                <circle cx="50" cy="54" r="10" fill={presetConfig.primaryColor} />
               </svg>
 
               {/* Right logo: LGA mark */}
@@ -658,7 +656,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
 
             {/* Gothic Script Maroon title */}
             <div className="my-3">
-              <h3 className="text-2xl font-bold font-serif text-[#991b1b] italic tracking-wide">
+              <h3 className="text-2xl font-bold font-serif italic tracking-wide" style={{ color: presetConfig.primaryColor }}>
                 {isBirthCert ? 'Attestation of Birth' : 'Certificate of Origin'}
               </h3>
             </div>
@@ -672,7 +670,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             </div>
 
             <div className="py-1 border-b border-neutral-300">
-              <b className="text-xl text-[#1e1b4b] uppercase font-sans font-black tracking-wide">
+              <b className="text-xl sm:text-2xl text-black uppercase font-royal italic font-black tracking-wide">
                 {isBirthCert ? fullName : `${gender}. ${fullName}`}
               </b>
             </div>
@@ -834,7 +832,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           {isBirthCert ? (
             <div className="my-2 text-left text-sm sm:text-base leading-loose max-w-lg mx-auto space-y-3 font-serif text-neutral-800 px-2">
               <p>
-                of <span className="font-sans font-black text-black uppercase underline decoration-neutral-800 decoration-2 px-1">{fullName} ({gender})</span>
+                of <span className="font-royal italic font-black text-black text-lg uppercase underline decoration-neutral-800 decoration-2 px-1">{fullName} ({gender})</span>
               </p>
 
               <p>
@@ -860,7 +858,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
           ) : (
             <div className="my-2 text-left text-sm sm:text-base leading-loose max-w-lg mx-auto space-y-4 font-serif text-neutral-800 px-2">
               <p>
-                of <span className="font-sans font-black text-black uppercase underline decoration-neutral-800 decoration-2 px-1">{gender}. {fullName}</span>
+                of <span className="font-royal italic font-black text-black text-lg uppercase underline decoration-neutral-800 decoration-2 px-1">{gender}. {fullName}</span>
               </p>
 
               <p>
@@ -884,7 +882,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               </p>
 
               <p>
-                This certificate of origin is issued today <span className="font-sans font-bold border-b-2 border-dashed border-red-500/50 text-neutral-900 bg-neutral-55/50 px-2 font-mono text-xs">{docDate}</span>
+                This certificate of origin is issued today <span className="font-sans font-bold border-b-2 border-dashed border-black/35 text-neutral-900 bg-neutral-55/50 px-2 font-mono text-xs">{docDate}</span>
               </p>
 
               <p>
@@ -898,17 +896,17 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
             
             {/* Spiky Red Wax Seal left */}
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-red-700 flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[-6deg] select-none scale-105">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-center text-[7px] font-black p-1 leading-none shadow-md rotate-[-6deg] select-none scale-105" style={{ backgroundColor: presetConfig.primaryColor }}>
                 <span className="border-2 border-dashed border-white/50 rounded-full w-full h-full flex items-center justify-center">CHAIRMAN STAR</span>
               </div>
               <span className="text-[9px] font-bold text-neutral-500 font-sans mt-1">Chairman / Stamp</span>
             </div>
 
             {/* Overlaid DIAGONAL purple personnel stamp left-of-signatures */}
-            <div className="absolute right-[170px] bottom-[30px] rotate-[-15deg] bg-blue-100/90 border-2 px-2 py-1 text-[7px] text-blue-800 font-sans font-bold leading-tight font-black shadow-sm select-none z-30 uppercase text-center scale-95 pr-2" style={{ borderColor: presetConfig.primaryColor }}>
+            <div className="absolute right-[170px] bottom-[30px] rotate-[-15deg] bg-white border-2 px-2 py-1 text-[7px] text-black font-sans font-bold leading-tight font-black shadow-sm select-none z-30 uppercase text-center scale-95 pr-2" style={{ borderColor: presetConfig.primaryColor }}>
               <div className="border border-dashed p-0.5" style={{ borderColor: `${presetConfig.primaryColor}80` }}>
                 <span className="block text-[8px]">HEAD OF PERSONNEL SIGN</span>
-                <span className="block text-red-650">{lga.toUpperCase()} LGA</span>
+                <span className="block" style={{ color: presetConfig.primaryColor }}>{lga.toUpperCase()} LGA</span>
                 <span>DIRECTOR OF MANAGEMENT</span>
               </div>
             </div>
@@ -919,7 +917,7 @@ export default function CertificatePreview({ doc, isPrintMode = false }: Certifi
               <div className="border-t border-neutral-400 pt-1 w-full text-center">
                 <span className="text-blue-800 block text-xs italic font-black h-4 mt-0.5 select-none" style={{ color: presetConfig.primaryColor }}>{officerName}</span>
                 <span className="text-xs font-bold text-[#111] block leading-tight">{officerName.toUpperCase()}</span>
-                <span className="text-[9px] text-[#b91c1c] block font-semibold leading-none">{officerTitle}</span>
+                <span className="text-[9px] block font-semibold leading-none" style={{ color: presetConfig.primaryColor }}>{officerTitle}</span>
               </div>
             </div>
           </div>

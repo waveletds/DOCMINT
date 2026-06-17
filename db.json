@@ -11,13 +11,13 @@
     },
     {
       "id": "student-demo",
-      "name": "Amina Adebayo",
+      "name": "AL-SALAM NNACHI",
       "email": "student@edudocs.ai",
       "phone": "+234 90 9876 5432",
       "role": "user",
       "verified": true,
       "createdAt": "2026-06-13T21:08:15.030Z",
-      "walletBalance": 13500
+      "walletBalance": 10500
     }
   ],
   "categories": [

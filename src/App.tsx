@@ -1,863 +1,765 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  FileText, 
-  Shield, 
-  Download, 
-  CheckCircle2, 
-  AlertCircle, 
-  Lock, 
-  User as UserIcon, 
-  DollarSign, 
-  FileCheck, 
-  Plus, 
-  Trash2, 
-  BookOpen, 
-  Settings, 
-  Layers, 
-  HelpCircle, 
-  ArrowRight, 
-  Loader2, 
   Search, 
-  Check, 
-  QrCode, 
-  Bookmark, 
-  Menu, 
-  X, 
-  LogOut, 
-  CreditCard, 
-  TrendingUp, 
-  Copy, 
-  Inbox, 
+  BookOpen, 
+  FileText, 
+  ShieldCheck, 
+  CheckCircle2, 
+  CreditCard,
+  X,
+  AlertCircle,
+  Lock,
+  Menu,
+  Printer,
+  Wallet,
+  Coins,
+  UserPlus,
+  LogIn,
+  Sliders,
+  Sparkles,
   RefreshCw,
-  Printer
+  Settings,
+  Unlock
 } from 'lucide-react';
-import { User, DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearchTemplate, FormInputField } from './types.js';
-import CertificatePreview from './components/CertificatePreview.js';
-import { INITIAL_CATEGORIES, INITIAL_RESEARCH_TEMPLATES } from './initial-data.js';
-import { NIGERIAN_STATES, NIGERIAN_LGAS, getCleanStateKey } from './nigerian-states-data.js';
-import { PRESETS_DB } from './state-presets.js';
+import confetti from 'canvas-confetti';
+
+import { INITIAL_CATEGORIES, INITIAL_RESEARCH_TEMPLATES } from './initial-data';
+import { DocumentCategory, GeneratedDocument, PaymentRecord, SampleResearchTemplate, User } from './types';
+import CertificatePreview from './components/CertificatePreview';
 
 
-// Intercept API calls to support serverless/static environments like Vercel or offline testing
-const realFetch = typeof window !== 'undefined' ? window.fetch : undefined;
-
-const getLocalDB = () => {
-  if (typeof window === 'undefined') return { users: [], categories: [], documents: [], payments: [], templates: [], systemPrompts: {} };
-  
-  if (!localStorage.getItem('docmint_loaded')) {
-    localStorage.setItem('docmint_users', JSON.stringify([
-      {
-        id: 'admin-demo',
-        name: 'Chief Admin',
-        email: 'admin@edudocs.ai',
-        phone: '+234 81 2345 6789',
-        role: 'admin',
-        verified: true,
-        walletBalance: 10000,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'student-demo',
-        name: 'Al-Salam',
-        email: 'student@edudocs.ai',
-        phone: '+234 90 9876 5432',
-        role: 'user',
-        verified: true,
-        walletBalance: 2500,
-        createdAt: new Date().toISOString()
-      }
-    ]));
-    localStorage.setItem('docmint_categories', JSON.stringify(INITIAL_CATEGORIES));
-    localStorage.setItem('docmint_templates', JSON.stringify(INITIAL_RESEARCH_TEMPLATES));
-    localStorage.setItem('docmint_documents', JSON.stringify([]));
-    localStorage.setItem('docmint_payments', JSON.stringify([]));
-    localStorage.setItem('docmint_system_prompts', JSON.stringify({
-      systemInstruction: 'You are DocMint, an expert, precision-oriented academic and administrative document generation assistant. You build beautiful, well-formatted letters following strict administrative conventions.',
-      pdfLetterheadInstructions: 'Ensure the document is structurally perfect. Output clean, gorgeous paragraphs.'
-    }));
-    localStorage.setItem('docmint_loaded', 'true');
-  }
-
-  return {
-    users: JSON.parse(localStorage.getItem('docmint_users') || '[]'),
-    categories: JSON.parse(localStorage.getItem('docmint_categories') || '[]'),
-    documents: JSON.parse(localStorage.getItem('docmint_documents') || '[]'),
-    payments: JSON.parse(localStorage.getItem('docmint_payments') || '[]'),
-    templates: JSON.parse(localStorage.getItem('docmint_templates') || '[]'),
-    systemPrompts: JSON.parse(localStorage.getItem('docmint_system_prompts') || '{}'),
-  };
-};
-
-const saveLocalDB = (db: any) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('docmint_users', JSON.stringify(db.users));
-  localStorage.setItem('docmint_categories', JSON.stringify(db.categories));
-  localStorage.setItem('docmint_documents', JSON.stringify(db.documents));
-  localStorage.setItem('docmint_payments', JSON.stringify(db.payments));
-  localStorage.setItem('docmint_templates', JSON.stringify(db.templates));
-  localStorage.setItem('docmint_system_prompts', JSON.stringify(db.systemPrompts));
-};
-
-const simulateApiCall = async (urlStr: string, init: any): Promise<Response> => {
-  if (typeof window === 'undefined') return new Response();
-  let path = urlStr;
-  if (urlStr.startsWith('http')) {
-    try {
-      path = new URL(urlStr).pathname;
-    } catch {
-      const match = urlStr.match(/\/api\/[a-zA-Z0-9_\-\/]+/);
-      if (match) path = match[0];
-    }
-  }
-
-  const method = (init?.method || 'GET').toUpperCase();
-  const db = getLocalDB();
-  
-  const authHeader = init?.headers?.['Authorization'] || init?.headers?.['authorization'] || '';
-  let tokenUserId = '';
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-    tokenUserId = authHeader.replace('Bearer ', '').trim();
-  }
-  
-  const currentUser = db.users.find((u: any) => u.id === tokenUserId);
-
-  const makeResponse = (data: any, status = 200) => {
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  };
-
-  // Routing Mock
-  if (path === '/api/auth/register' && method === 'POST') {
-    const body = JSON.parse(init.body || '{}');
-    const { name, email, phone, institution, department, matricNo, userType } = body;
-    if (!name || !email || !phone) {
-      return makeResponse({ error: 'Name, Email and Phone Number are required.' }, 400);
-    }
-    const cleanEmail = email.toLowerCase().trim();
-    if (db.users.some((u: any) => u.email.toLowerCase().trim() === cleanEmail)) {
-      return makeResponse({ error: 'A user with this email already exists.' }, 400);
-    }
-    
-    const newUser = {
-      id: 'u_' + Math.random().toString(36).substr(2, 9),
-      name,
-      email: cleanEmail,
-      phone,
-      role: 'user',
-      verified: false,
-      walletBalance: 2500,
-      createdAt: new Date().toISOString(),
-      institution: institution || '',
-      department: department || '',
-      matricNo: matricNo || '',
-      userType: userType || 'general'
-    };
-    db.users.push(newUser);
-    saveLocalDB(db);
-    return makeResponse({ user: newUser, token: newUser.id });
-  }
-
-  if (path === '/api/auth/login' && method === 'POST') {
-    const body = JSON.parse(init.body || '{}');
-    const { email } = body;
-    if (!email) {
-      return makeResponse({ error: 'Email is required.' }, 400);
-    }
-    const cleanEmail = email.toLowerCase().trim();
-    const user = db.users.find((u: any) => u.email.toLowerCase().trim() === cleanEmail);
-    if (!user) {
-      return makeResponse({ error: 'Invalid credentials. User not found.' }, 401);
-    }
-    if (user.walletBalance === undefined) {
-      user.walletBalance = 2500;
-    }
-    saveLocalDB(db);
-    return makeResponse({ user, token: user.id });
-  }
-
-  if (path === '/api/auth/verify' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    currentUser.verified = true;
-    saveLocalDB(db);
-    return makeResponse({ message: 'Email verified successfully!', user: currentUser });
-  }
-
-  if (path === '/api/auth/me' && method === 'GET') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    if (currentUser.walletBalance === undefined) {
-      currentUser.walletBalance = 2500;
-      saveLocalDB(db);
-    }
-    return makeResponse({ user: currentUser });
-  }
-
-  if (path === '/api/categories' && method === 'GET') {
-    return makeResponse(db.categories);
-  }
-
-  if (path === '/api/categories' && method === 'POST') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const body = JSON.parse(init.body || '{}');
-    if (!body.id || !body.name) {
-      return makeResponse({ error: 'Category ID and Name are required.' }, 400);
-    }
-    const idx = db.categories.findIndex((c: any) => c.id === body.id);
-    if (idx > -1) {
-      db.categories[idx] = body;
-    } else {
-      db.categories.push(body);
-    }
-    saveLocalDB(db);
-    return makeResponse(body);
-  }
-
-  if (path.startsWith('/api/categories/') && method === 'DELETE') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const id = path.split('/api/categories/')[1];
-    const initialLen = db.categories.length;
-    db.categories = db.categories.filter((c: any) => c.id !== id);
-    saveLocalDB(db);
-    return makeResponse({ success: db.categories.length !== initialLen });
-  }
-
-  if (path === '/api/research/templates' && method === 'GET') {
-    return makeResponse(db.templates);
-  }
-
-  if (path === '/api/research/templates' && method === 'POST') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const body = JSON.parse(init.body || '{}');
-    const template = {
-      id: body.id || 'tpl_' + Math.random().toString(36).substr(2, 9),
-      categoryId: body.categoryId,
-      title: body.title,
-      organization: body.organization,
-      rawText: body.rawText,
-      structureAnalysis: body.structureAnalysis,
-      createdAt: new Date().toISOString()
-    };
-    const idx = db.templates.findIndex((t: any) => t.id === template.id);
-    if (idx > -1) {
-      db.templates[idx] = template;
-    } else {
-      db.templates.push(template);
-    }
-    saveLocalDB(db);
-    return makeResponse(template);
-  }
-
-  if (path.startsWith('/api/research/templates/') && method === 'DELETE') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const id = path.split('/api/research/templates/')[1];
-    const initialLen = db.templates.length;
-    db.templates = db.templates.filter((t: any) => t.id !== id);
-    saveLocalDB(db);
-    return makeResponse({ success: db.templates.length !== initialLen });
-  }
-
-  if (path === '/api/payments/history' && method === 'GET') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    if (currentUser.role === 'admin') {
-      return makeResponse(db.payments);
-    } else {
-      return makeResponse(db.payments.filter((p: any) => p.userId === currentUser.id));
-    }
-  }
-
-  if (path === '/api/documents' && method === 'GET') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    if (currentUser.role === 'admin') {
-      return makeResponse(db.documents);
-    } else {
-      return makeResponse(db.documents.filter((d: any) => d.userId === currentUser.id));
-    }
-  }
-
-  if (path.startsWith('/api/documents/') && method === 'GET' && !path.endsWith('/generate-preview') && !path.includes('/api/documents/generate-preview')) {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const id = path.split('/api/documents/')[1];
-    const doc = db.documents.find((d: any) => d.id === id);
-    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
-    if (currentUser.role !== 'admin' && doc.userId !== currentUser.id) {
-      return makeResponse({ error: 'Unauthorized.' }, 403);
-    }
-    return makeResponse(doc);
-  }
-
-  if (path === '/api/documents/generate-preview' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const body = JSON.parse(init.body || '{}');
-    const { categoryId, inputs } = body;
-    if (!categoryId || !inputs) {
-      return makeResponse({ error: 'Category ID and inputs are required.' }, 400);
-    }
-    const category = db.categories.find((c: any) => c.id === categoryId);
-    if (!category) return makeResponse({ error: 'Category not found.' }, 404);
-
-    let text = category.samplePreview || `Dear Sir,\n\nThis is a student letter regarding ${category.name}.`;
-    
-    // Category-specific precise substitutions
-    if (categoryId === 'church-attestation') {
-      const church = String(inputs.churchName || 'REDEEMED CHRISTIAN CHURCH OF GOD');
-      const address = String(inputs.churchAddress || 'Grace Sanctuary, Lagos');
-      const pastor = String(inputs.pastorName || 'Pastor Enoch Adeboye');
-      const title = String(inputs.pastorTitle || 'Resident Pastor');
-      const member = String(inputs.memberFullName || 'JOHN CHIDI OBI');
-      const duration = String(inputs.durationOfMembership || '5 years');
-      const activities = String(inputs.churchActivities || 'choir department and youth fellowship');
-      
-      const firstSpaceIdx = member.trim().indexOf(' ');
-      const memberFirst = firstSpaceIdx > -1 ? member.trim().substring(0, firstSpaceIdx) : member;
-
-      text = text
-        .replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, church)
-        .replace(/Grace Sanctuary, Lagos/gi, address)
-        .replace(/JOHN CHIDI OBI/gi, member)
-        .replace(/John Chidi Obi/gi, member)
-        .replace(/John is a committed member of our choir department/gi, `${memberFirst} is a committed member of our ${activities}`)
-        .replace(/choir department and serves diligently in the youth fellowship/gi, activities)
-        .replace(/5 years/gi, duration)
-        .replace(/Pastor Enoch Adeboye/gi, pastor)
-        .replace(/Resident Pastor/gi, title);
-    } else if (categoryId === 'siwes-completion') {
-      const company = String(inputs.companyName || 'CHEVRON NIGERIA LIMITED');
-      const supervisor = String(inputs.supervisorName || 'Engr. Tunde Bakare');
-      const title = String(inputs.supervisorTitle || 'Lead Systems Engineer');
-      const student = String(inputs.studentName || 'AMINA YUSUF');
-      const matric = String(inputs.matricNo || 'ENG/2021/045');
-      const inst = String(inputs.institutionName || 'Federal University of Technology, Minna');
-      const dept = String(inputs.department || 'Mechanical Engineering');
-      const start = String(inputs.startDate || 'January 3, 2026');
-      const end = String(inputs.endDate || 'June 12, 2026');
-
-      text = text
-        .replace(/CHEVRON NIGERIA LIMITED/gi, company)
-        .replace(/Engr\. Tunde Bakare/gi, supervisor)
-        .replace(/Lead Systems Engineer/gi, title)
-        .replace(/AMINA YUSUF/gi, student)
-        .replace(/Amina Yusuf/gi, student)
-        .replace(/ENG\/2021\/045/gi, matric)
-        .replace(/Federal University of Technology, Minna/gi, inst)
-        .replace(/Mechanical Engineering/gi, dept)
-        .replace(/January 3, 2026/gi, start)
-        .replace(/June 12, 2026/gi, end);
-    } else if (categoryId === 'internship-discharge') {
-      const company = String(inputs.companyName || 'Flutterwave Technologies');
-      const internName = String(inputs.internName || inputs.studentName || 'David Alao');
-      const duration = String(inputs.duration || '3 Months');
-      const role = String(inputs.role || 'Frontend Web Developer Intern');
-      const supervisor = String(inputs.supervisorName || 'Chioma Adeleke');
-      const title = String(inputs.supervisorTitle || 'Head of People & Culture');
-
-      const firstSpaceIdx = internName.trim().indexOf(' ');
-      const internFirst = firstSpaceIdx > -1 ? internName.trim().substring(0, firstSpaceIdx) : internName;
-
-      text = text
-        .replace(/FLUTTERWAVE TECHNOLOGIES/gi, company)
-        .replace(/David Alao/gi, internName)
-        .replace(/david/gi, internFirst)
-        .replace(/3 Months/gi, duration)
-        .replace(/Frontend Web Developer Intern/gi, role)
-        .replace(/Chioma Adeleke/gi, supervisor)
-        .replace(/Head of People & Culture/gi, title);
-    } else {
-      // Generic safe, strict-key-based fallback
-      for (const [key, value] of Object.entries(inputs)) {
-        const valStr = String(value);
-        const regex = new RegExp(`\\{${key}\\}`, 'gi');
-        text = text.replace(regex, valStr);
-
-        if (key === 'memberFullName' || key === 'studentName' || key === 'childName' || key === 'fullName' || key === 'internName') {
-          text = text.replace(/JOHN CHIDI OBI/gi, valStr);
-          text = text.replace(/AMINA YUSUF/gi, valStr);
-          text = text.replace(/DAVID ALAO/gi, valStr);
-          text = text.replace(/CHARLES OKAFOR/gi, valStr);
-          text = text.replace(/FATIMA IBRAHIM/gi, valStr);
-          text = text.replace(/Victor James/gi, valStr);
-          text = text.replace(/Kenneth Ndu/gi, valStr);
-          text = text.replace(/Samuel Cole/gi, valStr);
-          text = text.replace(/Ibrahim Babangida/gi, valStr);
-        } else if (key === 'churchName' || key === 'companyName' || key === 'schoolName' || key === 'institutionName') {
-          text = text.replace(/REDEEMED CHRISTIAN CHURCH OF GOD/gi, valStr);
-          text = text.replace(/CHEVRON NIGERIA LIMITED/gi, valStr);
-          text = text.replace(/FLUTTERWAVE TECHNOLOGIES/gi, valStr);
-          text = text.replace(/UNIVERSITY OF LAGOS/gi, valStr);
-          text = text.replace(/UNIVERSITY OF ILORIN/gi, valStr);
-          text = text.replace(/STERLING BANK PLC/gi, valStr);
-        } else if (key === 'pastorName' || key === 'supervisorName' || key === 'officerName' || key === 'registrarName') {
-          text = text.replace(/Pastor Enoch Adeboye/gi, valStr);
-          text = text.replace(/Engr\. Tunde Bakare/gi, valStr);
-          text = text.replace(/Chioma Adeleke/gi, valStr);
-          text = text.replace(/Prof\. Olayinka Adebayo/gi, valStr);
-          text = text.replace(/Dr\. Chidi Nwosu/gi, valStr);
-          text = text.replace(/Prof\. Sarah Alabi/gi, valStr);
-        } else if (key === 'pastorTitle' || key === 'supervisorTitle' || key === 'officerTitle' || key === 'title') {
-          text = text.replace(/Resident Pastor/gi, valStr);
-          text = text.replace(/Lead Systems Engineer/gi, valStr);
-          text = text.replace(/Head of People & Culture/gi, valStr);
-        }
-      }
-    }
-
-    const docId = 'doc_' + Math.random().toString(36).substr(2, 9);
-    const newDoc = {
-      id: docId,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      categoryId,
-      categoryName: category.name,
-      inputs,
-      title: category.name,
-      content: text,
-      letterheadName: body.letterheadName || '',
-      letterheadAddress: body.letterheadAddress || '',
-      letterheadLogo: body.letterheadLogo || '',
-      watermarkLogo: body.watermarkLogo || '',
-      letterheadLogoAlign: body.letterheadLogoAlign || 'center',
-      watermarkLogoAlign: body.watermarkLogoAlign || 'center',
-      letterheadTitleColor: body.letterheadTitleColor || '#111111',
-      letterheadLineColor: body.letterheadLineColor || '#111111',
-      letterheadLineStyle: body.letterheadLineStyle || 'double',
-      designPatternStyle: body.designPatternStyle || 'standard-formal',
-      letterheadTitleSize: body.letterheadTitleSize || 'md',
-      addWatermark: !!body.addWatermark,
-      addQrCode: !!body.addQrCode,
-      addSignatureLine: !!body.addSignatureLine,
-      signerName: body.signerName || '',
-      signerTitle: body.signerTitle || '',
-      paid: false,
-      createdAt: new Date().toISOString()
-    };
-
-    db.documents.push(newDoc);
-    saveLocalDB(db);
-    return makeResponse(newDoc);
-  }
-
-  if (path === '/api/payments/initialize' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const body = JSON.parse(init.body || '{}');
-    const { docId, gateway } = body;
-    if (!docId || !gateway) {
-      return makeResponse({ error: 'Document ID and Gateway are required.' }, 400);
-    }
-    const doc = db.documents.find((d: any) => d.id === docId);
-    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
-
-    const category = db.categories.find((c: any) => c.id === doc.categoryId);
-    const amount = category ? category.priceNGN : 2500;
-    const reference = 'ED_' + Math.random().toString(36).substr(2, 10).toUpperCase();
-
-    const paymentRec = {
-      id: 'pay_' + Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      categoryId: doc.categoryId,
-      categoryName: doc.categoryName,
-      amount,
-      gateway,
-      reference,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    db.payments.push(paymentRec);
-    saveLocalDB(db);
-
-    return makeResponse({
-      paymentId: paymentRec.id,
-      amount,
-      currency: 'NGN',
-      reference,
-      gateway,
-      customerEmail: currentUser.email,
-      customerPhone: currentUser.phone
-    });
-  }
-
-  if (path === '/api/payments/verify' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const body = JSON.parse(init.body || '{}');
-    const { reference, status, docId } = body;
-    if (!reference || !status || !docId) {
-      return makeResponse({ error: 'Reference, Verification Status, and Document ID are required.' }, 400);
-    }
-    const payment = db.payments.find((p: any) => p.reference === reference);
-    if (!payment) return makeResponse({ error: 'Payment record not found.' }, 404);
-
-    payment.status = status === 'success' ? 'success' : 'failed';
-
-    if (status === 'success') {
-      const doc = db.documents.find((d: any) => d.id === docId);
-      if (doc) {
-        doc.paid = true;
-        doc.paymentGateway = payment.gateway;
-        doc.paymentRef = reference;
-      }
-    }
-
-    saveLocalDB(db);
-    return makeResponse({ status: payment.status, payment });
-  }
-
-  if (path === '/api/wallet/topup' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const body = JSON.parse(init.body || '{}');
-    const { amount } = body;
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return makeResponse({ error: 'Valid amount is required.' }, 400);
-    }
-    
-    currentUser.walletBalance = (currentUser.walletBalance || 0) + amount;
-
-    const paymentRec = {
-      id: 'pay_' + Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      categoryId: 'topup',
-      categoryName: `Wallet Top-up ₦${amount.toLocaleString()}`,
-      amount,
-      gateway: 'monnify',
-      reference: 'TOPUP_' + Math.random().toString(36).substr(2, 10).toUpperCase(),
-      status: 'success',
-      createdAt: new Date().toISOString()
-    };
-
-    db.payments.push(paymentRec);
-    
-    const uidx = db.users.findIndex((u: any) => u.id === currentUser.id);
-    if (uidx > -1) db.users[uidx] = currentUser;
-
-    saveLocalDB(db);
-    return makeResponse({ success: true, walletBalance: currentUser.walletBalance, payment: paymentRec, user: currentUser });
-  }
-
-  if (path === '/api/payments/pay-with-wallet' && method === 'POST') {
-    if (!currentUser) return makeResponse({ error: 'Unauthenticated.' }, 401);
-    const body = JSON.parse(init.body || '{}');
-    const { docId } = body;
-    if (!docId) return makeResponse({ error: 'Document ID is required.' }, 400);
-
-    const doc = db.documents.find((d: any) => d.id === docId);
-    if (!doc) return makeResponse({ error: 'Document not found.' }, 404);
-
-    const category = db.categories.find((c: any) => c.id === doc.categoryId);
-    const amount = category ? category.priceNGN : 2500;
-
-    const currentBalance = currentUser.walletBalance || 0;
-    if (currentBalance < amount) {
-      return makeResponse({ error: `Insufficient wallet balance. You need ₦${amount.toLocaleString()} but only have ₦${currentBalance.toLocaleString()}.` }, 400);
-    }
-
-    currentUser.walletBalance = currentBalance - amount;
-
-    const reference = 'WL_' + Math.random().toString(36).substr(2, 10).toUpperCase();
-    const paymentRec = {
-      id: 'pay_' + Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      categoryId: doc.categoryId,
-      categoryName: doc.categoryName,
-      amount,
-      gateway: 'monnify',
-      reference,
-      status: 'success',
-      createdAt: new Date().toISOString()
-    };
-
-    db.payments.push(paymentRec);
-
-    doc.paid = true;
-    doc.paymentGateway = 'monnify';
-    doc.paymentRef = reference;
-
-    const uidx = db.users.findIndex((u: any) => u.id === currentUser.id);
-    if (uidx > -1) db.users[uidx] = currentUser;
-
-    saveLocalDB(db);
-    return makeResponse({ success: true, walletBalance: currentUser.walletBalance, document: doc, payment: paymentRec });
-  }
-
-  if (path === '/api/admin/prompts' && method === 'GET') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    return makeResponse(db.systemPrompts);
-  }
-
-  if (path === '/api/admin/prompts' && method === 'POST') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const body = JSON.parse(init.body || '{}');
-    db.systemPrompts = {
-      systemInstruction: body.systemInstruction,
-      pdfLetterheadInstructions: body.pdfLetterheadInstructions
-    };
-    saveLocalDB(db);
-    return makeResponse(db.systemPrompts);
-  }
-
-  if (path === '/api/admin/stats' && method === 'GET') {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return makeResponse({ error: 'Admin permissions required.' }, 403);
-    }
-    const normalUserCount = db.users.filter((u: any) => u.role === 'user').length;
-    const paidDocs = db.documents.filter((d: any) => d.paid);
-    const totalPaymentsSuccess = db.payments.filter((p: any) => p.status === 'success');
-    const totalRevenue = totalPaymentsSuccess.reduce((acc: number, p: any) => acc + p.amount, 0);
-
-    return makeResponse({
-      totalUsers: normalUserCount,
-      totalDocuments: db.documents.length,
-      paidDocuments: paidDocs.length,
-      unpaidDocuments: db.documents.length - paidDocs.length,
-      totalRevenue,
-      paymentRecordCount: db.payments.length
-    });
-  }
-
-  return makeResponse({ error: 'Mock path not found' }, 404);
-};
-
-// local custom fetch implementation shadowing global fetch for App.tsx
-const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  if (typeof window === 'undefined') {
-    return new Response();
-  }
-  let url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
-  if (url.includes('/api/')) {
-    try {
-      if (!realFetch) {
-        return await simulateApiCall(url, init);
-      }
-      const res = await realFetch(input, init);
-      const contentType = res.headers.get('content-type') || '';
-      if (res.status === 404 || contentType.includes('text/html')) {
-        console.warn(`[DocMint Static Fallback] Endpoint ${url} is 404 or text/html. Loading mock client database instead.`);
-        return await simulateApiCall(url, init);
-      }
-      return res;
-    } catch (err) {
-      console.warn(`[DocMint Static Fallback] Endpoint ${url} failed to fetch. Loading mock client database instead.`, err);
-      return await simulateApiCall(url, init);
-    }
-  }
-  if (!realFetch) {
-    return new Response();
-  }
-  return realFetch(input, init);
-};
-
-export default function App() {
-  // Session State
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('edudocs_token'));
-  
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<'generate' | 'my-docs' | 'payments' | 'profile' | 'admin'>('generate');
+// Global Nav component to handle links
+function Navbar({ 
+  currentUser, 
+  onLogout,
+  onOpenAuth,
+  activeTab,
+  setActiveTab,
+  setIsDraftingActive
+}: { 
+  currentUser: User | null; 
+  onLogout: () => void;
+  onOpenAuth: () => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  setIsDraftingActive: (val: boolean) => void;
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Authentication Interface
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [authForm, setAuthForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    institution: '',
-    department: '',
-    matricNo: '',
-    userType: 'general' as 'student' | 'faculty' | 'organization' | 'general'
-  });
-  const [authError, setAuthError] = useState('');
-  const [authSuccess, setAuthSuccess] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
+  const navLinks = [
+    { id: 'dashboard', name: 'Drafting Console', icon: Sliders },
+    { id: 'drafts', name: 'My Archives', icon: FileText },
+    { id: 'templates', name: 'Research Models', icon: BookOpen },
+    { id: 'verify', name: 'Verify Document', icon: ShieldCheck },
+  ];
 
-  // Core Data Lists
-  const [categories, setCategories] = useState<DocumentCategory[]>([]);
-  const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [researchTemplates, setResearchTemplates] = useState<SampleResearchTemplate[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
+  if (currentUser?.role === 'admin') {
+    navLinks.push({ id: 'admin', name: 'Admin Hub', icon: Settings });
+  }
 
-  // Selected Category & Generator State
-  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | null>(null);
-  const [generatorInputs, setGeneratorInputs] = useState<Record<string, string>>({});
+  return (
+    <nav className="bg-white text-black sticky top-0 z-40 border-b-2 border-black font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo & Branding */}
+          <div className="flex items-center space-x-2.5 cursor-pointer" onClick={() => { setActiveTab('dashboard'); setIsDraftingActive(false); }}>
+            <div className="bg-black text-[#00c060] p-2.5 rounded-xl border border-black shadow-sm flex items-center justify-center">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div className="flex items-center space-x-1.5 text-left">
+              <div>
+                <span className="block font-black text-lg sm:text-xl tracking-tight text-black leading-none uppercase font-display">
+                  DocMint
+                </span>
+                <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5 block">
+                  ACCÈS OFFICIEL
+                </span>
+              </div>
+              <span className="bg-black text-[#00c060] border border-black text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider leading-none self-center">
+                Pro
+              </span>
+            </div>
+          </div>
+
+          {/* Desktop Links */}
+          <div className="hidden lg:flex items-center space-x-1">
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              const active = activeTab === link.id;
+              return (
+                <button
+                  key={link.id}
+                  onClick={() => {
+                    setActiveTab(link.id);
+                    if (link.id !== 'dashboard') {
+                      setIsDraftingActive(false);
+                    }
+                  }}
+                  className={`flex items-center space-x-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase transition-all duration-150 ${
+                    active 
+                      ? 'bg-black text-white border-2 border-black shadow-xs' 
+                      : 'text-neutral-500 hover:text-black border border-transparent hover:bg-neutral-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" style={{ color: active ? '#00c060' : 'currentColor' }} />
+                  <span>{link.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* User and Wallet Widgets */}
+          <div className="hidden lg:flex items-center space-x-4">
+            {currentUser ? (
+              <div className="flex items-center space-x-4">
+                {/* Wallet Balance Widget */}
+                <div className="bg-white border-2 border-black rounded-xl px-3.5 py-1.5 flex items-center space-x-2.5">
+                  <Wallet className="w-4 h-4 text-[#00c060]" />
+                  <div className="text-left font-sans">
+                    <span className="block text-[8px] text-neutral-400 font-black uppercase leading-none">Wallet</span>
+                    <span className="block text-xs font-black text-black leading-none mt-1">
+                      ₦{(currentUser.walletBalance ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="block text-[9px] font-black text-[#00c060] uppercase tracking-wider leading-none">Authorized</span>
+                  <span className="block text-xs font-bold text-black max-w-[145px] truncate leading-tight mt-1">
+                    {currentUser.name}
+                  </span>
+                </div>
+
+                <button
+                  onClick={onLogout}
+                  className="px-3 py-1.5 border-2 border-black hover:bg-black hover:text-white text-black text-xs font-black rounded-lg transition-all"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="flex items-center space-x-1.5 bg-[#00c060] hover:bg-[#00c060] text-white border-2 border-black px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Console Access</span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Menu Icon */}
+          <div className="lg:hidden flex items-center space-x-2.5">
+            {currentUser && (
+              <div className="bg-white border-2 border-black px-2.5 py-1 rounded-lg text-right scale-90">
+                <span className="block text-[8px] text-neutral-405 font-black leading-none font-sans">WALLET</span>
+                <span className="block text-xs font-black text-[#00c060]">₦{(currentUser.walletBalance ?? 0).toLocaleString()}</span>
+              </div>
+            )}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl text-black border border-neutral-300 hover:bg-neutral-50 focus:outline-none"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu Options */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden bg-white border-t-2 border-black px-3 pt-2 pb-4 space-y-1 shadow-inner">
+          {navLinks.map((link) => {
+            const Icon = link.icon;
+            const active = activeTab === link.id;
+            return (
+              <button
+                key={link.id}
+                onClick={() => {
+                  setActiveTab(link.id);
+                  if (link.id !== 'dashboard') {
+                    setIsDraftingActive(false);
+                  }
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center space-x-3 w-full text-left px-4 py-3 rounded-md text-sm font-black uppercase tracking-wider transition-all ${
+                  active 
+                    ? 'bg-black text-white border border-black' 
+                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-black'
+                }`}
+              >
+                <Icon className="w-5 h-5" style={{ color: active ? '#00c060' : 'currentColor' }} />
+                <span>{link.name}</span>
+              </button>
+            );
+          })}
+          {currentUser ? (
+            <div className="border-t border-neutral-200 pt-3 mt-3 px-4 flex items-center justify-between font-sans">
+              <div>
+                <span className="block text-xs font-bold text-black">{currentUser.name}</span>
+                <span className="block text-[10px] text-neutral-400 italic font-mono">ID: {currentUser.id}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onLogout();
+                }}
+                className="text-xs border-2 border-black text-black hover:bg-black hover:text-white px-3.5 py-1.5 rounded-lg font-black transition-all"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="pt-3 border-t border-neutral-200 mt-3 px-4">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenAuth();
+                }}
+                className="w-full text-center bg-[#00c060] hover:bg-[#00c060] text-white border-2 border-black font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all"
+              >
+                Access Account
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </nav>
+  );
+}
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isDraftingActive, setIsDraftingActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPill, setSelectedPill] = useState<'all' | 'attestation' | 'recommendation'>('all');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // Categories and templates state
+  const [categories, setCategories] = useState<DocumentCategory[]>(INITIAL_CATEGORIES);
+  const [templates, setTemplates] = useState<SampleResearchTemplate[]>(INITIAL_RESEARCH_TEMPLATES);
+  const [myDocuments, setMyDocuments] = useState<GeneratedDocument[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+
+  // Selection state
+  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | null>(INITIAL_CATEGORIES[0]);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+
+  // Design Studio settings
   const [letterheadName, setLetterheadName] = useState('FEDERAL UNIVERSITY OF TECHNOLOGY, MINNA');
-  const [letterheadAddress, setLetterheadAddress] = useState('P.M.B. 65, Bosso Road, Minna, Niger State, Nigeria');
-  const [letterheadLogo, setLetterheadLogo] = useState<string | null>(null);
-  const [watermarkLogo, setWatermarkLogo] = useState<string | null>(null);
-  const [letterheadLogoAlign, setLetterheadLogoAlign] = useState<'left' | 'right' | 'center' | 'align-text'>('center');
-  const [watermarkLogoAlign, setWatermarkLogoAlign] = useState<'left' | 'right' | 'center' | 'diagonal'>('center');
-  const [letterheadTitleColor, setLetterheadTitleColor] = useState<string>('#111111');
-  const [letterheadLineColor, setLetterheadLineColor] = useState<string>('#111111');
-  const [letterheadLineStyle, setLetterheadLineStyle] = useState<'solid' | 'double' | 'dotted' | 'none'>('double');
-  const [designPatternStyle, setDesignPatternStyle] = useState<'standard-formal' | 'modern-side' | 'classic-academy' | 'executive-tech' | 'minimalist'>('standard-formal');
-  const [letterheadTitleSize, setLetterheadTitleSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
+  const [letterheadAddress, setLetterheadAddress] = useState('MAIN CAMPUS, GIDAN KWANO, P.M.B. 65, MINNA, NIGER STATE');
+  const [letterheadLogo, setLetterheadLogo] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=200');
+  const [watermarkLogo, setWatermarkLogo] = useState('');
+  const [letterheadLogoAlign, setLetterheadLogoAlign] = useState<'left' | 'right' | 'center'>('left');
+  const watermarkLogoAlign = 'diagonal';
+  const [letterheadTitleColor, setLetterheadTitleColor] = useState('#064e3b');
+  const [letterheadLineColor, setLetterheadLineColor] = useState('#b45309');
+  const [letterheadLineStyle, setLetterheadLineStyle] = useState<'solid' | 'double' | 'dotted' | 'dashed' | 'none'>('double');
+  const designPatternStyle = 'standard-formal';
+  const letterheadTitleSize = 'md';
   const [addWatermark, setAddWatermark] = useState(true);
   const [addQrCode, setAddQrCode] = useState(true);
   const [addSignatureLine, setAddSignatureLine] = useState(true);
-  const [signerName, setSignerName] = useState('Prof. Olayinka Adebayo');
-  const [signerTitle] = useState('Dean of Student Affairs');
-  const [generationLoading, setGenerationLoading] = useState(false);
-  const [currentDoc, setCurrentDoc] = useState<GeneratedDocument | null>(null);
+  const [signerName, setSignerName] = useState('PROF. AMINA S. BELLO');
+  const [signerTitle] = useState('Dean of Student Affairs Office');
 
-  // Payment Flow State
+  // Generator State
+  const [generating, setGenerating] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState<GeneratedDocument | null>(null);
+
+  // Checkout State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState<'paystack' | 'monnify' | 'flutterwave'>('paystack');
-  const [paymentInitData, setPaymentInitData] = useState<{ amount: number; reference: string; payloadId?: string; authorizationUrl?: string; accessCode?: string; publicKey?: string } | null>(null);
-  const [paymentSimulating, setPaymentSimulating] = useState(false);
+  const [simulatedCheckoutOpen, setSimulatedCheckoutOpen] = useState(false);
+  const [simulatedCardNumber, setSimulatedCardNumber] = useState('');
+  const [simulatedCardExpiry, setSimulatedCardExpiry] = useState('');
+  const [simulatedCardCvv, setSimulatedCardCvv] = useState('');
+  const [simulatingPayment, setSimulatingPayment] = useState(false);
+  const [walletPaying, setWalletPaying] = useState(false);
+  const [simulatedRef, setSimulatedRef] = useState('');
+
+  // Top Up Wallet State
+  const [topupAmount, setTopupAmount] = useState('2500');
+
+  // Verification Portal state
+  const [verifyId, setVerifyId] = useState('');
+  const [verifiedDoc, setVerifiedDoc] = useState<GeneratedDocument | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
 
   // Admin Dashboard State
-  const [adminStats, setAdminStats] = useState({
-    totalUsers: 0,
-    totalDocuments: 0,
-    paidDocuments: 0,
-    unpaidDocuments: 0,
-    totalRevenue: 0,
-    paymentRecordCount: 0
-  });
-  const [adminActiveSubTab, setAdminActiveSubTab] = useState<'stats' | 'categories' | 'research' | 'prompts' | 'payments' | 'documents'>('stats');
-  
-  // New Category Form State
-  const [newCatForm, setNewCatForm] = useState<{
-    id: string;
-    name: string;
-    description: string;
-    priceNGN: number;
-    requiredFieldsText: string;
-    samplePreview: string;
-    aiPromptTemplate: string;
-  }>({
-    id: '',
-    name: '',
-    description: '',
-    priceNGN: 2000,
-    requiredFieldsText: JSON.stringify([
-      { key: "studentName", label: "Student Full Name", placeholder: "e.g., Joy Alo", type: "text", required: true },
-      { key: "matricNo", label: "Matric Number", placeholder: "e.g., RUN/CSC/12", type: "text", required: true }
-    ], null, 2),
-    samplePreview: 'Dear Sir,\n\nAttestation letter content...',
-    aiPromptTemplate: 'Generate an attestation letter for {studentName} with matric {matricNo}.'
-  });
+  const [adminStats, setAdminStats] = useState<any>(null);
+  const [adminPrompts, setAdminPrompts] = useState<any>(null);
+  const [savingPrompts, setSavingPrompts] = useState(false);
 
-  // New Research Template State
-  const [newResearchForm, setNewResearchForm] = useState({
-    categoryId: 'church-attestation',
-    title: '',
-    organization: '',
-    rawText: '',
-    structureAnalysis: ''
-  });
+  // Authentication Fields
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [userTypeInput, setUserTypeInput] = useState<'student' | 'faculty' | 'organization' | 'general'>('student');
+  const [institutionInput, setInstitutionInput] = useState('');
+  const [departmentInput, setDepartmentInput] = useState('');
+  const [matricNoInput, setMatricNoInput] = useState('');
+  const [authError, setAuthError] = useState('');
 
-  // System Prompt Settings States
-  const [systemInstructionState, setSystemInstructionState] = useState('');
-  const [pdfLetterheadState, setPdfLetterheadState] = useState('');
-  const [promptMessage, setPromptMessage] = useState('');
-
-  // UI state filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDocForModal, setSelectedDocForModal] = useState<GeneratedDocument | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [walletActionLoading, setWalletActionLoading] = useState<number | null>(null);
-
-  // Load user session on startup
-  useEffect(() => {
-    if (token) {
-      fetchUserProfile();
-    }
-  }, [token]);
-
-  // Load common metadata if authenticated
-  useEffect(() => {
-    if (user) {
-      loadPlatformData();
-      if (user.role === 'admin') {
-        loadAdminData();
-      }
-    }
-  }, [user]);
-
-  const fetchUserProfile = async () => {
+  // Quick helper to fetch templates or reload drafts
+  const fetchMyDrafts = async (userId: string) => {
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch('/api/documents', {
+        headers: { 'Authorization': `Bearer ${userId}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
-        // Stale token
-        logout();
+      if (response.ok) {
+        const data = await response.json();
+        setMyDocuments(data);
       }
-    } catch {
-      logout();
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const loadPlatformData = async () => {
+  const fetchPaymentHistory = async (userId: string) => {
     try {
-      setDataLoading(true);
-      const [catsRes, docsRes, paysRes, resTemplatesRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/documents', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/research/templates')
-      ]);
-
-      if (catsRes.ok) setCategories(await catsRes.json());
-      if (docsRes.ok) setDocuments(await docsRes.json());
-      if (paysRes.ok) setPayments(await paysRes.json());
-      if (resTemplatesRes.ok) setResearchTemplates(await resTemplatesRes.json());
-    } catch (err) {
-      console.error('Error fetching dashboard metadata:', err);
-    } finally {
-      setDataLoading(false);
+      const response = await fetch('/api/payments/history', {
+        headers: { 'Authorization': `Bearer ${userId}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentHistory(data);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const loadAdminData = async () => {
+  const fetchServerCategoriesAndTemplates = async () => {
     try {
-      const [statsRes, promptsRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/prompts', { headers: { 'Authorization': `Bearer ${token}` } })
-      ]);
-      if (statsRes.ok) setAdminStats(await statsRes.json());
+      const catRes = await fetch('/api/categories');
+      if (catRes.ok) {
+        const cats = await catRes.json();
+        if (cats && cats.length > 0) setCategories(cats);
+      }
+      const tplRes = await fetch('/api/research/templates');
+      if (tplRes.ok) {
+        const tpls = await tplRes.json();
+        if (tpls && tpls.length > 0) setTemplates(tpls);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAdminData = async (userId: string) => {
+    try {
+      const statsRes = await fetch('/api/admin/stats', {
+        headers: { 'Authorization': `Bearer ${userId}` }
+      });
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        setAdminStats(stats);
+      }
+      const promptsRes = await fetch('/api/admin/prompts', {
+        headers: { 'Authorization': `Bearer ${userId}` }
+      });
       if (promptsRes.ok) {
-        const p = await promptsRes.json();
-        setSystemInstructionState(p.systemInstruction);
-        setPdfLetterheadState(p.pdfLetterheadInstructions);
+        const prompts = await promptsRes.json();
+        setAdminPrompts(prompts);
       }
-    } catch (err) {
-      console.error('Error fetching admin metadata:', err);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('edudocs_token');
-    setToken(null);
-    setUser(null);
-    setDocuments([]);
-    setPayments([]);
-    setSelectedCategory(null);
-    setCurrentDoc(null);
+  // Auth Action handlers
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!nameInput || !emailInput || !phoneInput || !passwordInput) {
+      setAuthError('Please fill out all mandatory fields.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nameInput,
+          email: emailInput,
+          phone: phoneInput,
+          password: passwordInput,
+          institution: institutionInput,
+          department: departmentInput,
+          matricNo: matricNoInput,
+          userType: userTypeInput
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setAuthError(data.error || 'Registration failed.');
+        return;
+      }
+
+      localStorage.setItem('docmint_user_id', data.token);
+      setCurrentUser(data.user);
+      setToken(data.token);
+      setAuthModalOpen(false);
+      confetti({ particleCount: 150, spread: 80 });
+
+      // Load specific student preloaded context
+      fetchMyDrafts(data.token);
+      fetchPaymentHistory(data.token);
+    } catch (err: any) {
+      setAuthError(err.message || 'Server error.');
+    }
   };
 
-  const handleWalletTopUp = async (amount: number) => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!emailInput) {
+      setAuthError('Please enter email address.');
+      return;
+    }
+
     try {
-      setWalletActionLoading(amount);
-      const res = await fetch('/api/wallet/topup', {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailInput,
+          password: passwordInput
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setAuthError(data.error || 'Authentication failed.');
+        return;
+      }
+
+      localStorage.setItem('docmint_user_id', data.token);
+      setCurrentUser(data.user);
+      setToken(data.token);
+      setAuthModalOpen(false);
+
+      if (data.user?.role === 'admin') {
+        fetchAdminData(data.token);
+      }
+      fetchMyDrafts(data.token);
+      fetchPaymentHistory(data.token);
+    } catch (err: any) {
+      setAuthError(err.message || 'Server connection error.');
+    }
+  };
+
+  const handleDemoAccess = (email: string) => {
+    setEmailInput(email);
+    setPasswordInput('admin123');
+    setIsRegistering(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('docmint_user_id');
+    setCurrentUser(null);
+    setToken(null);
+    setActiveTab('dashboard');
+    setMyDocuments([]);
+    setPaymentHistory([]);
+    setCurrentDocument(null);
+  };
+
+  // Trigger registration modal automatically if unauthenticated on document generation action
+  const handleTryGenerate = () => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+  };
+
+  // Seeding/Load effect
+  useEffect(() => {
+    fetchServerCategoriesAndTemplates();
+    const storedUid = localStorage.getItem('docmint_user_id');
+    if (storedUid) {
+      // Direct session log with backend
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${storedUid}` }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error();
+      })
+      .then(data => {
+        setCurrentUser(data.user);
+        setToken(storedUid);
+        if (data.user?.role === 'admin') {
+          fetchAdminData(storedUid);
+        }
+        fetchMyDrafts(storedUid);
+        fetchPaymentHistory(storedUid);
+      })
+      .catch(() => {
+        localStorage.removeItem('docmint_user_id');
+      });
+    }
+  }, []);
+
+  // Sync state options and restore cached drafts when category shifts
+  useEffect(() => {
+    if (selectedCategory) {
+      const cached = localStorage.getItem(`docmint_draft_inputs_${selectedCategory.id}`);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            setInputs(parsed);
+            return;
+          }
+        } catch (e) {
+          // Fallback to defaults on corrupt parse
+        }
+      }
+
+      const defaultInputs: Record<string, string> = {};
+      selectedCategory.requiredFields.forEach(f => {
+        defaultInputs[f.key] = '';
+      });
+      setInputs(defaultInputs);
+    }
+  }, [selectedCategory]);
+
+  // Real-time Auto-save state helper
+  useEffect(() => {
+    if (selectedCategory && inputs && Object.keys(inputs).length > 0) {
+      localStorage.setItem(`docmint_draft_inputs_${selectedCategory.id}`, JSON.stringify(inputs));
+    }
+  }, [inputs, selectedCategory]);
+
+  // Document Draft Maker Action
+  const generatePreview = async () => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!selectedCategory) return;
+
+    // Check validation of mandatory fields
+    const missing = selectedCategory.requiredFields.filter(f => f.required && !inputs[f.key]);
+    if (missing.length > 0) {
+      alert(`Please fill in all required draft parameters: ${missing.map(m => m.label).join(', ')}`);
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const response = await fetch('/api/documents/generate-preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          categoryId: selectedCategory.id,
+          inputs,
+          letterheadName,
+          letterheadAddress,
+          letterheadLogo,
+          watermarkLogo,
+          letterheadLogoAlign,
+          watermarkLogoAlign,
+          letterheadTitleColor,
+          letterheadLineColor,
+          letterheadLineStyle,
+          designPatternStyle,
+          letterheadTitleSize,
+          addWatermark,
+          addQrCode,
+          addSignatureLine,
+          signerName,
+          signerTitle
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Draft assembly failed on backend.');
+      }
+
+      const freshDoc = await response.json();
+      setCurrentDocument(freshDoc);
+      fetchMyDrafts(token!);
+      confetti({ particleCount: 80, spread: 60 });
+    } catch (e: any) {
+      alert(e.message || 'Error creating document layout.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Payment Unlock Flow
+  const initialTransactionCheckout = async () => {
+    if (!currentDocument || !currentUser) return;
+    setSimulatingPayment(true);
+
+    try {
+      const response = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          docId: currentDocument.id,
+          gateway: selectedGateway
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not contact checkout terminal.');
+      }
+
+      const payData = await response.json();
+      setSimulatedRef(payData.reference);
+      setSimulatingPayment(false);
+      setSimulatedCheckoutOpen(true);
+    } catch (e) {
+      alert('Error initializing billing gateway.');
+      setSimulatingPayment(false);
+    }
+  };
+
+  const handleFinishCreditSimulator = async (simStatus: 'success' | 'failed') => {
+    if (!currentDocument || !simulatedRef) return;
+    setSimulatingPayment(true);
+
+    try {
+      const response = await fetch('/api/payments/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          reference: simulatedRef,
+          status: simStatus,
+          docId: currentDocument.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Verification failed.');
+      }
+
+      const data = await response.json();
+      if (data.status === 'success') {
+        confetti({ particleCount: 200, spread: 100 });
+        setSimulatedCheckoutOpen(false);
+        setPaymentModalOpen(false);
+        
+        // Reload active unlocked sheet
+        const loadFreshRes = await fetch(`/api/documents/${currentDocument.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (loadFreshRes.ok) {
+          const freshUnlocked = await loadFreshRes.json();
+          setCurrentDocument(freshUnlocked);
+        }
+
+        fetchMyDrafts(token!);
+        fetchPaymentHistory(token!);
+        
+        // Update user's remote session
+        const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setCurrentUser(meData.user);
+        }
+      } else {
+        alert('Transaction was flagged or rejected by checkout terminal.');
+      }
+    } catch (e) {
+      alert('Verification terminal error.');
+    } finally {
+      setSimulatingPayment(false);
+    }
+  };
+
+  const handleWalletPay = async () => {
+    if (!currentDocument || !currentUser) return;
+    setWalletPaying(true);
+
+    try {
+      const response = await fetch('/api/payments/pay-with-wallet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ docId: currentDocument.id })
+      });
+
+      const resBody = await response.json();
+      if (!response.ok) {
+        alert(resBody.error || 'Wallet checkout failed.');
+        return;
+      }
+
+      confetti({ particleCount: 200, spread: 100 });
+      setPaymentModalOpen(false);
+      setCurrentDocument(resBody.document);
+      
+      fetchMyDrafts(token!);
+      fetchPaymentHistory(token!);
+
+      setCurrentUser({
+        ...currentUser,
+        walletBalance: resBody.walletBalance
+      });
+    } catch (e) {
+      alert('Wallet debit system problem.');
+    } finally {
+      setWalletPaying(false);
+    }
+  };
+
+  const handleWalletTopup = async () => {
+    if (!currentUser) return;
+    const cleanAmt = parseFloat(topupAmount);
+    if (isNaN(cleanAmt) || cleanAmt <= 0) {
+      alert('Please enter a valid amount to topup.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/wallet/topup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount: cleanAmt })
+      });
+
+      if (!response.ok) throw new Error();
+      const resBody = await response.json();
+      
+      confetti({ particleCount: 100, spread: 70 });
+      setCurrentUser(resBody.user);
+      fetchPaymentHistory(token!);
+      alert(`Top-up of ₦${cleanAmt.toLocaleString()} successful! New Balance: ₦${resBody.walletBalance.toLocaleString()}`);
+    } catch (e) {
+      alert('Error charging card for top-up.');
+    }
+  };
+
+  const triggerQuickTopup = async (amount: number) => {
+    if (!currentUser) return;
+    try {
+      const response = await fetch('/api/wallet/topup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -865,3667 +767,1603 @@ export default function App() {
         },
         body: JSON.stringify({ amount })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        // Refresh billing logs / statistics
-        const paysRes = await fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (paysRes.ok) {
-          setPayments(await paysRes.json());
-        }
-      }
-    } catch (err) {
-      console.error('Wallet top up failure:', err);
-    } finally {
-      setWalletActionLoading(null);
-    }
-  };
 
-  // Authentication Helpers
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthSuccess('');
-    setAuthLoading(true);
-
-    const url = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authForm)
-      });
+      if (!response.ok) throw new Error();
+      const resBody = await response.json();
       
-      const responseText = await res.text();
-      let data: any;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonErr) {
-        throw new Error(`Server response error: ${responseText.slice(0, 150) || 'Empty response'}`);
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      localStorage.setItem('edudocs_token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      setAuthSuccess(`Welcome, ${data.user.name}!`);
-      
-      // Auto register defaults
-      setAuthForm({ name: '', email: '', phone: '', password: '', institution: '', department: '', matricNo: '', userType: 'general' });
-    } catch (err: any) {
-      setAuthError(err.message || 'Verification error occurred');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Demo Fast Login buttons for streamlined appraiser evaluations
-  const handleDemoLogin = async (email: string) => {
-    setAuthError('');
-    setAuthSuccess('');
-    setAuthLoading(true);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      localStorage.setItem('edudocs_token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      setAuthSuccess(`Logged in successfully as Demo ${data.user.role === 'admin' ? 'Administrator' : 'Student'}!`);
-    } catch (err: any) {
-      setAuthError(err.message || 'Demo log-in failed');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const triggerVerificationSimulation = async () => {
-    try {
-      const res = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        alert('Verification success! Account email verified simulated successfully.');
-      }
+      confetti({ particleCount: 100, spread: 70 });
+      setCurrentUser(resBody.user);
+      fetchPaymentHistory(token!);
+      alert(`Top-up of ₦${amount.toLocaleString()} successful! New Balance: ₦${resBody.walletBalance.toLocaleString()}`);
     } catch (e) {
-      console.error(e);
+      alert('Error charging card for top-up.');
     }
   };
 
-  // Drag and drop logo handlers
-  const handleLetterheadLogoUpload = (fileObj: File) => {
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setLetterheadLogo(uploadEvent.target?.result as string);
-    };
-    reader.readAsDataURL(fileObj);
-  };
-
-  const handleWatermarkLogoUpload = (fileObj: File) => {
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setWatermarkLogo(uploadEvent.target?.result as string);
-    };
-    reader.readAsDataURL(fileObj);
-  };
-
-  // Category selection handler with initial values setup
-  const selectCategoryForGeneration = (cat: DocumentCategory) => {
-    setSelectedCategory(cat);
-    const initialInputs: Record<string, string> = {};
-    cat.requiredFields.forEach(f => {
-      initialInputs[f.key] = '';
-    });
-    setGeneratorInputs(initialInputs);
-    setCurrentDoc(null);
-  };
-
-  // AI draft preview generation API call
-  const generateDocumentDraft = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCategory || !user) return;
-
-    // Check if empty values
-    const missing = selectedCategory.requiredFields.filter(f => f.required && !generatorInputs[f.key]);
-    if (missing.length > 0) {
-      alert(`Please fill up the required fields: ${missing.map(f => f.label).join(', ')}`);
+  // Document verification matching engine
+  const runVerifyTracker = async () => {
+    setVerifyError('');
+    setVerifiedDoc(null);
+    if (!verifyId.trim()) {
+      setVerifyError('Please specify document/certificate referential ID.');
       return;
     }
+    setVerifying(true);
 
-    setGenerationLoading(true);
     try {
-      const payload = {
-        categoryId: selectedCategory.id,
-        inputs: generatorInputs,
-        letterheadName: letterheadName,
-        letterheadAddress: letterheadAddress,
-        letterheadLogo: letterheadLogo,
-        watermarkLogo: watermarkLogo,
-        letterheadLogoAlign: letterheadLogoAlign,
-        watermarkLogoAlign: watermarkLogoAlign,
-        letterheadTitleColor: letterheadTitleColor,
-        letterheadLineColor: letterheadLineColor,
-        letterheadLineStyle: letterheadLineStyle,
-        designPatternStyle: designPatternStyle,
-        letterheadTitleSize: letterheadTitleSize,
-        addWatermark: addWatermark,
-        addQrCode: addQrCode,
-        addSignatureLine: addSignatureLine,
-        signerName: signerName,
-        signerTitle: signerTitle
-      };
-
-      const res = await fetch('/api/documents/generate-preview', {
-        method: 'POST',
+      const response = await fetch(`/api/documents/${verifyId.trim()}`, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const resText = await res.text();
-        let errorData: any;
-        try {
-          errorData = JSON.parse(resText);
-        } catch (e) {
-          throw new Error(`Server response error: ${resText.slice(0, 150) || 'Unknown error'}`);
-        }
-        throw new Error(errorData.error || 'Failed to trigger document draft creation.');
-      }
-
-      const generatedDocResult = await res.json();
-      setCurrentDoc(generatedDocResult);
-      // Update documents cache state
-      setDocuments(prev => [generatedDocResult, ...prev.filter(d => d.id !== generatedDocResult.id)]);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setGenerationLoading(false);
-    }
-  };
-
-  // Dynamically load Paystack Pop script
-  const loadPaystackScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).PaystackPop) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const payWithPaystackInline = async (payInitData: any) => {
-    const loaded = await loadPaystackScript();
-    if (!loaded) {
-      alert('Could not contact Paystack secure channels. Reverting to sandbox simulator...');
-      return;
-    }
-
-    try {
-      const handler = (window as any).PaystackPop.setup({
-        key: payInitData.publicKey || 'pk_test_c3cbde8a74e5cbbf5e8f49ad4518fa1c4eb985bf',
-        email: user?.email || 'customer@edudocs.ai',
-        amount: payInitData.amount * 100, // Paystack amount is in kobo
-        ref: payInitData.reference,
-        onClose: () => {
-          alert('Secure checkout session cancelled.');
-        },
-        callback: async (response: any) => {
-          setPaymentSimulating(true);
-          try {
-            const res = await fetch('/api/payments/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                reference: response.reference,
-                status: 'success',
-                docId: currentDoc?.id
-              })
-            });
-
-            if (res.ok) {
-              setCurrentDoc(prev => prev ? { ...prev, paid: true, paymentGateway: 'paystack', paymentRef: response.reference } : null);
-              alert('Official verification unlocked! Payment settled successfully via Paystack.');
-              loadPlatformData();
-              setPaymentModalOpen(false);
-              setPaymentInitData(null);
-            } else {
-              alert('Paystack verification failed. Please contact support.');
-            }
-          } catch (err) {
-            console.error('Paystack verification error:', err);
-          } finally {
-            setPaymentSimulating(false);
-          }
+          'Authorization': `Bearer ${token || 'guest_viewer_or_verifier'}`
         }
       });
-      handler.openIframe();
-    } catch (err) {
-      console.error('Failed to trigger Paystack Pop:', err);
-      // fallback to checkout redirection in absolute sandbox restrictions
-      if (payInitData.authorizationUrl) {
-        window.open(payInitData.authorizationUrl, '_blank');
-      } else {
-        alert('Could not load Paystack inline popup in this sandboxed frame. Please use the simulator below to proceed!');
-      }
-    }
-  };
 
-  // Checkout API triggers
-  const triggerCheckout = async () => {
-    if (!currentDoc) return;
-    try {
-      const res = await fetch('/api/payments/initialize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          docId: currentDoc.id,
-          gateway: selectedGateway
-        })
-      });
-      if (res.ok) {
-        const payInit = await res.json();
-        const initPayload = {
-          amount: payInit.amount,
-          reference: payInit.reference,
-          payloadId: currentDoc.id,
-          authorizationUrl: payInit.authorizationUrl,
-          accessCode: payInit.accessCode,
-          publicKey: payInit.publicKey
-        };
-        setPaymentInitData(initPayload);
-        setPaymentModalOpen(true);
-
-        // If Paystack is chosen and real secret key is configured, we can launch the overlay instantly
-        if (selectedGateway === 'paystack' && payInit.accessCode) {
-          payWithPaystackInline(initPayload);
-        }
-      } else {
-        alert('Payment initialization failed. Try again.');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Mock Payment Complete Simulators
-  const completePaymentSimulatedResult = async (decision: 'success' | 'failed') => {
-    if (!paymentInitData || !currentDoc) return;
-    setPaymentSimulating(true);
-
-    try {
-      const res = await fetch('/api/payments/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          reference: paymentInitData.reference,
-          status: decision,
-          docId: currentDoc.id
-        })
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        if (decision === 'success') {
-          // Update local currentDoc state to PAID
-          setCurrentDoc(prev => prev ? { ...prev, paid: true, paymentGateway: selectedGateway, paymentRef: paymentInitData.reference } : null);
-          alert('Congratulations! Payment processed successfully with 100% official verification code unlocked.');
-          
-          // refresh general stats
-          loadPlatformData();
-        } else {
-          alert('Simulated transaction dropped or cancelled.');
-        }
-      }
-    } catch (err) {
-      console.error('Error verifying payment step:', err);
-    } finally {
-      setPaymentSimulating(false);
-      setPaymentModalOpen(false);
-      setPaymentInitData(null);
-    }
-  };
-
-  const handlePayWithWallet = async () => {
-    if (!currentDoc) return;
-    try {
-      setPaymentSimulating(true);
-      const res = await fetch('/api/payments/pay-with-wallet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          docId: currentDoc.id
-        })
-      });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.walletBalance !== undefined) {
-          setUser(prev => prev ? { ...prev, walletBalance: result.walletBalance } : null);
-        }
-        setCurrentDoc(prev => prev ? { ...prev, paid: true, paymentGateway: 'monnify', paymentRef: result.payment?.reference } : null);
-        alert('Congratulations! Payment processed successfully with 100% official verification code unlocked via your Wallet Balance.');
-        
-        // Refresh docs lists and stats
-        loadPlatformData();
-      } else {
-        const errData = await res.json();
-        alert(errData.error || 'Deduction failed. Please top-up your wallet.');
-      }
-    } catch (err) {
-      console.error('Error paying with wallet:', err);
-    } finally {
-      setPaymentSimulating(false);
-    }
-  };
-
-  // Trigger quick validation simulated download/print PDF formatted container
-  const handlePrintDocument = (doc: GeneratedDocument) => {
-    // Elegant system print wrapper using an iFrame or dynamic window text rendering
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Allow popups in your browser settings to print your DocMint document.');
-      return;
-    }
-
-    if (doc.categoryId === 'lga-origin') {
-      const inputs = doc.inputs || {};
-      const stylePreset = inputs.stylePreset || 'Imo Heartland (Green teeth border)';
-      const state = inputs.state || 'Imo State';
-      const lga = inputs.lga || 'Oguta';
-      const fullName = inputs.fullName || 'Odebiye Aduragbemi Adekunle';
-      const gender = inputs.gender || 'MR';
-      const townOrVillage = inputs.townOrVillage || 'Oguta Village';
-      const autonomousCommunity = inputs.autonomousCommunity || '';
-      const traditionalRuler = inputs.traditionalRuler || '';
-      const certificateNo = inputs.certificateNo || 'IM/LO/ABJ/2063';
-      const liaisonOffice = inputs.liaisonOffice || '';
-      const officerName = inputs.officerName || 'Hon. Anthony Njoku';
-      const officerTitle = inputs.officerTitle || 'Liaison Officer';
-      const fatherName = inputs.fatherName || 'Chief Odebiye Yusuf Kunle';
-      const motherName = inputs.motherName || 'Deaconess Oluwaseun Beatrice';
-      const bornPlace = inputs.bornPlace || 'Ondo East Town Center';
-      const docDate = new Date(doc.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-
-      const isImo = stylePreset.includes('Imo');
-      const isLagos = stylePreset.includes('Lagos') || stylePreset.includes('Epe');
-      const isOguta = stylePreset.includes('Oguta');
-      const isCrossRiver = stylePreset.includes('Cross River') || stylePreset.includes('Ikom');
-      const isOndo = stylePreset.includes('Ondo');
-
-      // Top logo crest
-      let crestBadgeHTML = '';
-      if (isImo) {
-        crestBadgeHTML = `
-          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
-            <svg viewBox="0 0 100 100" style="width: 70px; height: 70px; fill: #d97706;">
-              <path d="M50,5 L80,25 L80,65 L50,95 L20,65 L20,25 Z" />
-              <path d="M50,10 L75,28 L75,62 L50,88 L25,62 L25,28 Z" fill="#ffffff" />
-              <circle cx="50" cy="48" r="14" fill="#15803d" />
-              <path d="M42,48 L58,48 M50,40 L50,56" stroke="#ffffff" stroke-width="3" />
-            </svg>
-          </div>`;
-      } else if (isLagos) {
-        crestBadgeHTML = `
-          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
-            <div style="width: 70px; height: 70px; border-radius: 50%; border: 1px solid #777; background: #fffdf0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px;">
-              <span style="font-size: 6px; font-weight: bold; color: #15803d; font-family: sans-serif;">GOVERNMENT</span>
-              <div style="font-size: 14px; margin: 2px 0;">🌴</div>
-              <span style="font-size: 6px; font-weight: bold; color: #15803d; font-family: sans-serif; line-height: 1;">EPE LGA</span>
-            </div>
-          </div>`;
-      } else if (isOguta) {
-        crestBadgeHTML = `
-          <div style="display: flex; justify-content: center; margin-bottom: 12px;">
-            <div style="width: 70px; height: 70px; border-radius: 50%; border: 4px dotted #059669; background: #fff; display: flex; align-items: center; justify-content: center;">
-              <svg viewBox="0 0 100 100" style="width: 45px; height: 45px; stroke: #047857; fill: none;" stroke-width="3">
-                <circle cx="50" cy="50" r="35" />
-                <circle cx="50" cy="50" r="5" fill="#dc2626" />
-              </svg>
-            </div>
-          </div>`;
-      } else if (isCrossRiver) {
-        crestBadgeHTML = `
-          <div style="display: flex; justify-content: center; margin-bottom: 12px; gap: 20px; align-items: center;">
-            <div style="width: 45px; height: 45px; border-radius: 50%; border: 1px solid #1e3a8a; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; font-family: sans-serif;">CR STATE</div>
-            <svg viewBox="0 0 100 100" style="width: 55px; height: 55px; fill: #172554;">
-              <path d="M50,10 L90,40 L95,80 L50,95 L5,80 L10,40 Z" />
-              <path d="M50,15 L15,82 L85,82 Z" fill="#ffffff" />
-            </svg>
-            <div style="width: 45px; height: 45px; border-radius: 50%; border: 1px solid #1e3a8a; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; font-family: sans-serif;">IKOM LGA</div>
-          </div>`;
-      } else {
-        crestBadgeHTML = `
-          <div style="display: flex; justify-content: center; margin-bottom: 12px; gap: 10px; align-items: center;">
-            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: #fbbf24; border: 1px solid #b45309; display: flex; align-items: center; justify-content: center; font-size: 16px;">☀️</div>
-            <div style="text-align: left; font-family: sans-serif;">
-              <span style="font-size: 10px; font-weight: bold; color: #d97706; display: block; text-transform: uppercase;">Ondo State</span>
-              <span style="font-size: 8px; color: #555;">Ise Loogun Ise</span>
-            </div>
-          </div>`;
-      }
-
-      // Title header
-      let headerHTML = '';
-      if (isImo) {
-        headerHTML = `
-          <h1 style="font-size: 22px; font-weight: 900; text-transform: uppercase; margin: 0; color: #047857;">GOVERNMENT OF IMO STATE OF NIGERIA</h1>
-          <p style="font-size: 12px; font-weight: 900; color: #dc2626; text-transform: uppercase; margin: 5px 0 0 0; letter-spacing: 2px;">(EASTERN HEARTLAND)</p>
-          ${liaisonOffice ? `<p style="font-size: 10px; font-style: italic; color: #555; margin: 4px 0 0 0;">${liaisonOffice}</p>` : ''}
-        `;
-      } else if (isLagos) {
-        headerHTML = `
-          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 0; border-bottom: 1px solid #ccc; padding-bottom: 5px; display: inline-block; width: 100%; max-width: 450px;">EPE LOCAL GOVERNMENT</h1>
-          <p style="font-size: 13px; font-weight: bold; color: #dc2626; text-transform: uppercase; margin: 5px 0 0 0; letter-spacing: 1px;">LAGOS STATE, NIGERIA</p>
-        `;
-      } else if (isOguta) {
-        headerHTML = `
-          <p style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin: 0; letter-spacing: 1px;">Original Reference</p>
-          <h1 style="font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #064e3b;">GOVERNMENT OF ${state.toUpperCase()}</h1>
-          <h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin: 2px 0 0 0; color: #047857;">${lga.toUpperCase()} LOCAL GOVERNMENT AREA</h2>
-        `;
-      } else if (isCrossRiver) {
-        headerHTML = `
-          <p style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #1e3a8a; margin: 0; letter-spacing: 1px;">CROSS RIVER STATE OF NIGERIA</p>
-          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #222;">${lga.toUpperCase()} LOCAL GOVERNMENT</h1>
-          <p style="font-size: 9px; font-style: italic; color: #555; margin: 2px 0 0 0;">Local Government Headquarters, ${lga}</p>
-        `;
-      } else {
-        headerHTML = `
-          <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 0; color: #111;">${lga.toUpperCase()} LOCAL GOVERNMENT</h1>
-          <p style="font-size: 10px; font-style: italic; color: #555; margin: 4px 0 0 0;">P.M.B. 514, ${lga}, ${state}</p>
-        `;
-      }
-
-      // Main Document Heading
-      let documentTitleHTML = '';
-      if (isLagos) {
-        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: 900; color: #dc2626; font-style: italic; margin: 15px 0; text-decoration: underline; text-decoration-style: double;">Certificate of Origin</h3>`;
-      } else if (isOguta) {
-        documentTitleHTML = `<h3 style="font-size: 28px; font-weight: 900; color: #b91c1c; text-transform: uppercase; margin: 15px 0;">Identification Certificate</h3>`;
-      } else if (isCrossRiver) {
-        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: bold; color: #172554; font-style: italic; margin: 15px 0;">Certificate of Origin</h3>`;
-      } else if (isOndo) {
-        documentTitleHTML = `<h3 style="font-size: 24px; font-weight: 900; color: #dc2626; text-transform: uppercase; margin: 15px 0; letter-spacing: 1.5px;">CERTIFICATE OF ORIGIN</h3>`;
-      } else {
-        documentTitleHTML = `<h3 style="font-size: 21px; font-weight: bold; color: #dc2626; text-transform: uppercase; margin: 15px 0; border-top: 1px solid #fca5a5; border-bottom: 1px solid #fca5a5; padding: 6px 0; display: inline-block; width: 100%; max-width: 400px;">CERTIFICATE OF STATE OF ORIGIN</h3>`;
-      }
-
-      // Stamps and Wax seal
-      let stampSEAL_HTML = `
-        <div style="display: flex; gap: 15px; align-items: center;">
-          <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px dashed rgba(220, 38, 38, 0.4); display: flex; align-items: center; justify-content: center; text-align: center; font-family: sans-serif; font-size: 8px; color: rgba(220, 38, 38, 0.5); font-weight: bold; transform: rotate(-10deg);">
-            <div style="padding: 2px;">
-              ${lga.toUpperCase()} LGA<br/>
-              <span style="font-size: 5px;">APPROVED</span><br/>
-              <span style="font-size: 6px;">${docDate}</span>
-            </div>
-          </div>
-      `;
-      if (isLagos || isOndo || isOguta) {
-        stampSEAL_HTML += `
-          <div style="width: 65px; height: 65px; border-radius: 50%; background: #b91c1c; border: 2px solid #f59e0b; display: flex; align-items: center; justify-content: center; text-align: center; color: white; font-family: sans-serif; font-size: 7px; font-weight: bold; transform: rotate(5deg); box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-            <div style="border: 1px dashed #f59e0b; border-radius: 50%; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-              <span>★ OFFICIAL ★</span>
-              <span style="font-size: 5px;">SEAL</span>
-            </div>
-          </div>
-        `;
-      }
-      stampSEAL_HTML += '</div>';
-
-      // Imo triangle borders
-      let imoBordersCSS = '';
-      let imoBordersHTML = '';
-      if (isImo) {
-        imoBordersCSS = `
-          .teeth-border {
-            position: absolute;
-            top: 10px; left: 10px; right: 10px; bottom: 10px;
-            border: 4px solid #fff;
-            pointer-events: none;
-            z-index: 10;
-          }
-          .teeth-rail-v {
-            position: absolute;
-            top: 14px; bottom: 14px;
-            width: 16px;
-            background: #f5f5f5;
-            overflow: hidden;
-          }
-          .teeth-rail-h {
-            position: absolute;
-            left: 10px; right: 10px;
-            height: 16px;
-            background: #f5f5f5;
-            overflow: hidden;
-            display: flex;
-          }
-          .triangle-up {
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 16px solid #15803d;
-            display: inline-block;
-            float: left;
-          }
-          .triangle-down {
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 16px solid #15803d;
-            display: inline-block;
-            float: left;
-            margin-left: -8px;
-          }
-        `;
-        
-        // Assemble top and bottom triangles
-        let hTriangles = '';
-        for (let i = 0; i < 48; i++) {
-          hTriangles += `<div style="display:flex; float: left; width: 16px; position: relative;">
-            <div class="triangle-up"></div>
-            <div class="triangle-down" style="position: absolute; left: 8px;"></div>
-          </div>`;
-        }
-
-        let vTriangles = '';
-        for (let i = 0; i < 62; i++) {
-          vTriangles += `<div style="display:flex; width: 16px; height: 16px; position: relative; transform: rotate(90deg); margin-bottom: 4px;">
-            <div class="triangle-up"></div>
-            <div class="triangle-down" style="position: absolute; left: 8px;"></div>
-          </div>`;
-        }
-
-        imoBordersHTML = `
-          <div class="teeth-border">
-            <div class="teeth-rail-h" style="top: 0; left: 0; right: 0;">${hTriangles}</div>
-            <div class="teeth-rail-h" style="bottom: 0; left: 0; right: 0; transform: rotate(180deg);">${hTriangles}</div>
-            <div class="teeth-rail-v" style="left: 0; top: 16px; bottom: 16px;">${vTriangles}</div>
-            <div class="teeth-rail-v" style="right: 0; top: 16px; bottom: 16px; transform: rotate(180deg);">${vTriangles}</div>
-          </div>
-        `;
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>DocMint - Certificate of Origin</title>
-          <style>
-            @page { size: A4; margin: 10mm; }
-            body {
-              font-family: Georgia, serif;
-              color: #1a1a1a;
-              background-color: #fff;
-              margin: 0;
-              padding: 0;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .certificate-container {
-              width: 210mm;
-              height: 297mm;
-              box-sizing: border-box;
-              padding: ${isLagos ? '30mm 20mm 20mm 28mm' : '30mm 20mm 20mm 20mm'};
-              position: relative;
-              background: #fff;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              overflow: hidden;
-            }
-            ${imoBordersCSS}
-            
-            .watermark {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              width: 60%;
-              height: 60%;
-              opacity: 0.05;
-              pointer-events: none;
-              z-index: 1;
-            }
-            .content-wrapper {
-              position: relative;
-              z-index: 5;
-              height: 100%;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              text-align: center;
-            }
-            .non-printable-notice {
-              position: fixed;
-              top: 10px;
-              left: 10px;
-              right: 10px;
-              background: #fff3cd;
-              color: #856404;
-              padding: 8px 12px;
-              border: 1px solid #ffeeba;
-              border-radius: 4px;
-              font-family: sans-serif;
-              font-size: 11px;
-              z-index: 99999;
-              text-align: center;
-            }
-            @media print {
-              .non-printable-notice { display: none; }
-              body { background-color: #fff; }
-              .certificate-container {
-                width: 100%;
-                height: 100%;
-                box-shadow: none;
-                border: none;
-                margin: 0;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="non-printable-notice">
-            <strong>System Inkjet Calibration Checklist:</strong> Select target printer as <strong>"Save as PDF"</strong> or your local color printer. Set margin style to <strong>"None"</strong>, and make sure to check <strong>"Background Graphics"</strong> to print the borders and badges!
-          </div>
-
-          <div class="certificate-container" style="${isLagos ? 'background-color: #fffef0;' : ''}">
-            
-            ${imoBordersHTML}
-
-            ${isLagos ? '<div style="position: absolute; top:0; bottom:0; left:0; width: 24px; display: flex;"><div style="width: 33%; height:100%; background:#0ea5e9;"></div><div style="width:33%; height:100%; background:#dc2626;"></div><div style="width:34%; height:100%; background:#16a34a;"></div></div>' : ''}
-
-            ${isOguta ? '<div style="position: absolute; top:12px; bottom:12px; left:12px; right:12px; border: 4px solid rgba(5,150,105,0.6);"><div style="position: absolute; top:4px; bottom:4px; left:4px; right:4px; border: 1px dashed rgba(5,150,105,0.4);"></div></div>' : ''}
-
-            ${isCrossRiver ? '<div style="position: absolute; top:10px; bottom:10px; left:10px; right:10px; border: 12px double #1e3a8a;"></div>' : ''}
-
-            ${isOndo ? '<div style="position: absolute; top:10px; bottom:10px; left:10px; right:10px; border: 2px solid #111;"><div style="position: absolute; top:4px; bottom:4px; left:4px; right:4px; border: 1px solid #ccc;"></div></div>' : ''}
-
-            <!-- Custom Watermark Logo (Removed Automated hardcoded block to support custom uploads) -->
-            ${doc.addWatermark && doc.watermarkLogo ? (() => {
-              const align = doc.watermarkLogoAlign || 'center';
-              let styleStr = 'position: absolute; pointer-events: none; z-index: 1; opacity: 0.08;';
-              if (align === 'left') {
-                styleStr += ' left: 30px; top: 35%; width: 140px; height: 140px;';
-              } else if (align === 'right') {
-                styleStr += ' right: 30px; top: 35%; width: 140px; height: 140px;';
-              } else if (align === 'diagonal') {
-                styleStr += ' left: 50%; top: 52%; width: 62%; height: 62%; transform: translate(-50%, -50%) rotate(-25deg);';
-              } else { // center
-                styleStr += ' left: 50%; top: 52%; width: 62%; height: 62%; transform: translate(-50%, -50%);';
-              }
-              return `<img src="${doc.watermarkLogo}" style="${styleStr}" alt="Custom Watermark" referrerPolicy="no-referrer" />`;
-            })() : ''}
-
-            ${doc.addWatermark && !doc.paid ? '<div style="position: absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(-30deg); font-family:sans-serif; font-size:48px; font-weight:900; color:rgba(220,38,38,0.13); text-transform:uppercase; letter-spacing:5px; white-space:nowrap; z-index:999;">DRAFT ONLY - UNLICENSED REPRODUCTION</div>' : ''}
-
-            <div class="content-wrapper">
-              
-              <!-- Header Brand Info -->
-              <div style="padding-top: 10px;">
-                ${crestBadgeHTML}
-                
-                <div style="display: flex; justify-content: space-between; padding: 0 30px; font-family: monospace; font-size: 11px; color: #555; margin-bottom: 5px;">
-                  <span>Ref NO: ${certificateNo}</span>
-                  <span>Date: ${docDate}</span>
-                </div>
-
-                <div style="margin-top: 10px;">
-                  ${headerHTML}
-                </div>
-
-                ${documentTitleHTML}
-              </div>
-
-              <!-- Main Body Statement -->
-              <div style="margin: 30px 10px; font-family: Georgia, serif; line-height: 1.8;">
-                <p style="font-family: sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; color: #666; margin-bottom: 25px;">To Whom It May Concern</p>
-                
-                ${isOndo ? `
-                  <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 16px; color: #222; line-height: 2;">
-                    <p style="margin-bottom: 12px;">
-                      of <strong style="text-decoration: underline;">${gender}. ${fullName}</strong> is a native of <strong style="text-decoration: underline;">${townOrVillage}</strong> in <strong>${lga}</strong> Local Government of <strong>${state}</strong>.
-                    </p>
-                    <p style="margin-bottom: 12px;">
-                      HIS/HER Father <strong style="text-decoration: underline;">${fatherName}</strong> and Mother <strong style="text-decoration: underline;">${motherName}</strong> were born and breed at <strong style="text-decoration: underline;">${bornPlace}</strong>.
-                    </p>
-                    <p style="margin-bottom: 12px;">
-                      This certificate of origin is issued today <strong style="text-decoration: underline;">${docDate}</strong> at ${lga} Local Government Secretariat.
-                    </p>
-                  </div>
-                ` : `
-                  <p style="font-size: 18px; font-style: italic; color: #555; margin-bottom: 20px;">This is to certify that</p>
-                  
-                  <div style="margin: 25px 0;">
-                    <span style="font-size: 24px; font-weight: 950; text-transform: uppercase; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; display: inline-block; min-width: 320px;">
-                      ${gender}. ${fullName}
-                    </span>
-                    <span style="font-family: sans-serif; font-size: 9px; text-transform: uppercase; color: #999; letter-spacing: 2px; display: block; margin-top: 6px;">Primary Registrant Identifier</span>
-                  </div>
-
-                  <div style="max-width: 600px; margin: 0 auto; text-align: justify; font-size: 15px; color: #222;">
-                    <p style="text-indent: 12px; margin-bottom: 12px; text-align: justify;">
-                      whose information has been officially filed, hails from <strong style="text-decoration: underline;">${townOrVillage}</strong> 
-                      ${autonomousCommunity ? `in <strong style="text-decoration: underline;">${autonomousCommunity}</strong> autonomous community,` : ''} 
-                      situated in <strong style="text-decoration: underline;">${lga}</strong> Local Government Area of <strong style="text-decoration: underline;">${state}</strong>, Federal Republic of Nigeria.
-                    </p>
-                    
-                    ${traditionalRuler ? `<p style="text-align: center; font-family: sans-serif; font-size: 12px; color: #444; border-top: 1px dotted #ccc; border-bottom: 1px dotted #ccc; padding: 6px 0; margin: 20px 0;">👑 The traditional ruler / royal highness of the community is: <strong>${traditionalRuler}</strong></p>` : ''}
-
-                    <p style="font-size: 11px; color: #666; font-style: italic; line-height: 1.5; margin-top: 20px; text-align: justify;">
-                      By implication of this verification docket, the registrant is authenticated as a valid indigene of the declared Local Government Area. All regulatory academies, military recruitment units, civil selection boards, and sovereign agencies are requested to grant the bearer the necessary assistance and parameters they may require.
-                    </p>
-                  </div>
-                `}
-              </div>
-
-              <!-- Seals and Signatures footer block -->
-              <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dotted #bbb; padding-top: 20px; margin-top: auto; padding-bottom: 15px;">
-                ${stampSEAL_HTML}
-
-                <div style="text-align: right; min-width: 250px; font-family: sans-serif; padding-right: 15px;">
-                  <span style="font-size: 11px; color: #666; font-style: italic; display: block; margin-bottom: 45px; text-transform: uppercase;">for the ${officerTitle.toUpperCase()}</span>
-                  <div style="border-top: 1px solid #333; padding-top: 6px; width: 220px; display: inline-block; text-align: center;">
-                    <span style="font-weight: bold; font-size: 13px; color: #111; display: block;">${officerName}</span>
-                    <span style="font-size: 10px; color: #555; display: block;">${officerTitle}</span>
-                    <span style="font-size: 9px; color: #888; font-family: monospace; display: block; margin-top: 2px;">${docDate}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Barcode Reference bar -->
-              <div style="border-top: 1px solid #eee; padding-top: 8px; display: flex; justify-content: space-between; font-family: monospace; font-size: 9px; color: #888; margin-bottom: 5px;">
-                <span>VERIFICATION COMPLIANCE SYSTEM SECURED</span>
-                <span>CRYPTID REFERENCE: ${doc.id.toUpperCase()}</span>
-              </div>
-
-            </div>
-          </div>
-
-          <script>
-            setTimeout(() => {
-              window.print();
-            }, 500);
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      return;
-    }
-
-    const categoryObj = categories.find(c => c.id === doc.categoryId);
-    const styleClass = categoryObj?.templateStyle || 'executive';
-
-    // build QR and layout
-    const watermarkHTML = doc.addWatermark && !doc.paid 
-      ? `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(220, 50, 50, 0.12); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">UNPAID PREVIEW - DOCMINT</div>` 
-      : `<div style="position: absolute; top: 40%; left: 5%; right: 5%; color: rgba(50, 200, 50, 0.08); font-size: 58px; font-weight: bold; transform: rotate(-30deg); text-align: center; text-transform: uppercase; pointer-events: none; z-index: 9999; font-family: sans-serif;">VERIFIED - DOCMINT</div>`;
-
-    let watermarkLogoHTML = '';
-    if (doc.watermarkLogo) {
-      const align = doc.watermarkLogoAlign || 'center';
-      if (align === 'left') {
-        watermarkLogoHTML = `
-          <div style="position: absolute; top: 35%; left: 40px; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
-            <img src="${doc.watermarkLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(100%);" />
-          </div>`;
-      } else if (align === 'right') {
-        watermarkLogoHTML = `
-          <div style="position: absolute; top: 35%; right: 40px; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
-            <img src="${doc.watermarkLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(100%);" />
-          </div>`;
-      } else if (align === 'diagonal') {
-        watermarkLogoHTML = `
-          <div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0; transform: rotate(-25deg);">
-            <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
-          </div>`;
-      } else { // center
-        watermarkLogoHTML = `
-          <div style="position: absolute; top: 30%; left: 15%; right: 15%; height: 40%; display: flex; align-items: center; justify-content: center; opacity: 0.05; pointer-events: none; z-index: 0;">
-            <img src="${doc.watermarkLogo}" style="width: 70%; height: 75%; object-fit: contain; filter: grayscale(100%);" />
-          </div>`;
-      }
-    }
-
-    const qrHTML = doc.addQrCode
-      ? `<div style="display: flex; gap: 10px; align-items: center; border-top: 1px dotted #ccc; padding-top: 15px; margin-top: 30px; font-size: 11px; font-family: monospace; color: #555;">
-           <div style="background: black; color: white; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid charcoal;">QR-CODE</div>
-           <div>
-             <b>OFFICIAL REFERENCE VERIFICATION:</b><br/>
-             Ref ID: ${doc.id}<br/>
-             Status: ${doc.paid ? 'Digitally Signed & Validated (Paid)' : 'PREVIEW UNPAID'}<br/>
-             Issued on: ${new Date(doc.createdAt).toLocaleDateString()}
-           </div>
-         </div>`
-      : '';
-
-    const logoAlign = doc.letterheadLogoAlign || 'center';
-    const titleColor = doc.letterheadTitleColor || '#111111';
-    const lineColor = doc.letterheadLineColor || '#111111';
-    const lineStyle = doc.letterheadLineStyle || 'double';
-    const pattern = doc.designPatternStyle || 'standard-formal';
-    const titleSize = doc.letterheadTitleSize || 'md';
-
-    let fontSize = '20px';
-    if (titleSize === 'sm') fontSize = '14px';
-    else if (titleSize === 'md') fontSize = '20px';
-    else if (titleSize === 'lg') fontSize = '24px';
-    else if (titleSize === 'xl') fontSize = '28px';
-
-    let borderCSS = `border-bottom: 3.5px double ${lineColor};`;
-    if (lineStyle === 'none') {
-      borderCSS = 'border-bottom: none;';
-    } else if (lineStyle === 'dotted') {
-      borderCSS = `border-bottom: 2px dotted ${lineColor};`;
-    } else if (lineStyle === 'dashed') {
-      borderCSS = `border-bottom: 2px dashed ${lineColor};`;
-    } else if (lineStyle === 'solid') {
-      borderCSS = `border-bottom: 2.5px solid ${lineColor};`;
-    }
-
-    let letterheadHTML = '';
-    const nameStyle = `margin: 0; font-size: ${fontSize}; font-family: ${pattern === 'classic-academy' ? "Georgia, serif" : "Cambria, 'Times New Roman', serif"}; color: ${titleColor}; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.25;`;
-    const addressStyle = `margin: 5px 0 0 0; font-size: 11px; font-family: Arial, sans-serif; color: #555; leading-height: 1.4;`;
-
-    if (doc.letterheadName || doc.letterheadAddress || doc.letterheadLogo) {
-      if (logoAlign === 'left') {
-        letterheadHTML = `
-          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px;">
-            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
-            <div style="flex: 1; text-align: left;">
-              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
-              <p style="${addressStyle}">${doc.letterheadAddress}</p>
-            </div>
-          </div>`;
-      } else if (logoAlign === 'right') {
-        letterheadHTML = `
-          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 20px; justify-content: space-between;">
-            <div style="flex: 1; text-align: left;">
-              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
-              <p style="${addressStyle}">${doc.letterheadAddress}</p>
-            </div>
-            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" />` : ''}
-          </div>`;
-      } else if (logoAlign === 'align-text') {
-        letterheadHTML = `
-          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;">
-            ${doc.letterheadLogo ? `<img src="${doc.letterheadLogo}" style="height: 45px; width: 45px; object-fit: contain;" />` : ''}
-            <div style="text-align: left;">
-              <h2 style="${nameStyle}">${doc.letterheadName}</h2>
-              <p style="${addressStyle}">${doc.letterheadAddress}</p>
-            </div>
-          </div>`;
-      } else { // center
-        letterheadHTML = `
-          <div style="${borderCSS} padding-bottom: 12px; margin-bottom: 25px; text-align: center;">
-            ${doc.letterheadLogo ? `<div style="display: flex; justify-content: center; margin-bottom: 8px;"><img src="${doc.letterheadLogo}" style="height: 60px; width: 60px; object-fit: contain;" /></div>` : ''}
-            <h2 style="${nameStyle}">${doc.letterheadName}</h2>
-            <p style="${addressStyle}">${doc.letterheadAddress}</p>
-          </div>`;
-      }
-    }
-
-    const signatureHTML = doc.addSignatureLine
-      ? `<div style="margin-top: 35px; text-align: left; float: right; width: 250px; font-family: 'Times New Roman', Times, serif;">
-          <p style="margin-bottom: 45px;">Yours faithfully,</p>
-          <div style="border-top: 1.5px solid #000; padding-top: 5px; font-weight: bold;">
-            ${doc.signerName || 'Administrative Signatory'}<br/>
-            <span style="font-size: 13px; font-weight: normal; color: #555;">${doc.signerTitle || 'Coordinator / Officer'}</span>
-          </div>
-         </div>
-         <div style="clear: both;"></div>`
-      : '';
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>DocMint - ${doc.title}</title>
-        <style>
-          @page { size: A4; margin: 20mm; }
-          body { 
-            font-family: ${styleClass === 'classic' ? "'Times New Roman', Georgia, serif" : "Arial, Helvetica, sans-serif"}; 
-            line-height: 1.6; 
-            color: #111; 
-            font-size: 14px;
-            background: #fff;
-            position: relative;
-          }
-          .letter-container {
-            max-width: 800px;
-            margin: 0 auto;
-            position: relative;
-            padding: 10px;
-            ${pattern === 'modern-side' ? `border-left: 6px solid ${lineColor}; padding-left: 25px;` : ''}
-            ${pattern === 'executive-tech' ? `border-top: 8px solid ${lineColor}; padding-top: 25px;` : ''}
-          }
-          p { margin-bottom: 15px; text-align: justify; }
-          strong { font-weight: bold; }
-          .non-printable-notice {
-            background: #fff3cd;
-            color: #856404;
-            padding: 10px;
-            border: 1px solid #ffeeba;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-family: sans-serif;
-            font-size: 13px;
-          }
-          @media print {
-            .non-printable-notice { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="letter-container">
-          <div class="non-printable-notice">
-            <strong>Print Instructions:</strong> Set target destinations to <strong>"Save as PDF"</strong> or your local color printer. To remove browser headers & footers, uncheck "Headers and Footers" in print options.
-          </div>
-          ${watermarkHTML}
-          ${watermarkLogoHTML}
-          ${letterheadHTML}
-          
-          <div style="white-space: pre-line; min-height: 380px;">
-            ${doc.content}
-          </div>
-          
-          ${signatureHTML}
-          ${qrHTML}
-        </div>
-        <script>
-          setTimeout(() => {
-            window.print();
-          }, 300);
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  // Administration operations
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let parsedFields = [];
-      try {
-        parsedFields = JSON.parse(newCatForm.requiredFieldsText);
-      } catch {
-        alert('Invalid Required Fields format. Please ensure it is a valid JSON Array of objects.');
+      if (!response.ok) {
+        setVerifyError('Referential document ID not found inside database registries.');
         return;
       }
 
-      const payload = {
-        id: newCatForm.id.toLowerCase().replace(/\s+/g, '-'),
-        name: newCatForm.name,
-        description: newCatForm.description,
-        priceNGN: Number(newCatForm.priceNGN),
-        requiredFields: parsedFields,
-        samplePreview: newCatForm.samplePreview,
-        aiPromptTemplate: newCatForm.aiPromptTemplate,
-        templateStyle: 'executive'
-      };
-
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        alert('Document category saved successfully!');
-        setNewCatForm({
-          id: '',
-          name: '',
-          description: '',
-          priceNGN: 2000,
-          requiredFieldsText: JSON.stringify([
-            { key: "studentName", label: "Student Full Name", placeholder: "e.g., Joy Alo", type: "text", required: true },
-            { key: "matricNo", label: "Matric Number", placeholder: "e.g., RUN/CSC/12", type: "text", required: true }
-          ], null, 2),
-          samplePreview: 'Dear Sir,\n\nAttestation letter content...',
-          aiPromptTemplate: 'Generate an attestation letter for {studentName} with matric {matricNo}.'
-        });
-        loadPlatformData();
-        loadAdminData();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Server error creating category.');
-      }
-    } catch (e: any) {
-      alert(e.message);
-    }
-  };
-
-  const handleDeleteCategory = async (id: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete template category: ${id}?`)) return;
-    try {
-      const res = await fetch(`/api/categories/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setCategories(prev => prev.filter(c => c.id !== id));
-        alert('Category deleted.');
-        loadAdminData();
-      }
+      const found = await response.json();
+      setVerifiedDoc(found);
+      confetti({ particleCount: 70, spread: 45 });
     } catch (e) {
-      console.error(e);
+      setVerifyError('Tracker offline or unauthorized check.');
+    } finally {
+      setVerifying(false);
     }
   };
 
-  const handleCreateResearchTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSavePrompts = async () => {
+    if (currentUser?.role !== 'admin') return;
+    setSavingPrompts(true);
     try {
-      const res = await fetch('/api/research/templates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newResearchForm)
-      });
-      if (res.ok) {
-        alert('Academic sample research template analyzed & successfully uploaded to baseline database.');
-        setNewResearchForm({
-          categoryId: 'church-attestation',
-          title: '',
-          organization: '',
-          rawText: '',
-          structureAnalysis: ''
-        });
-        loadPlatformData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteResearchTemplate = async (id: string) => {
-    if (!window.confirm('Delete this template analysis?')) return;
-    try {
-      const res = await fetch(`/api/research/templates/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setResearchTemplates(prev => prev.filter(t => t.id !== id));
-        alert('Analysis deleted.');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleUpdatePrompts = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPromptMessage('');
-    try {
-      const res = await fetch('/api/admin/prompts', {
+      const response = await fetch('/api/admin/prompts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          systemInstruction: systemInstructionState,
-          pdfLetterheadInstructions: pdfLetterheadState
+          systemInstruction: adminPrompts.systemInstruction
         })
       });
-      if (res.ok) {
-        setPromptMessage('AI Prompts updated successfully! All future Generations will comply.');
-        loadAdminData();
-      } else {
-        setPromptMessage('Update failed.');
+      if (response.ok) {
+        alert('AI Core prompts saved successfully!');
       }
     } catch (e) {
-      console.error(e);
-      setPromptMessage('Update error.');
+      alert('Error saving custom instruction.');
+    } finally {
+      setSavingPrompts(false);
     }
   };
 
-  // Pre-fill categories helper for admin testing
-  const populateDefaultFormValues = (cat: DocumentCategory) => {
-    const defaultData: Record<string, string> = { ...generatorInputs };
-    cat.requiredFields.forEach(f => {
-      if (!defaultData[f.key]) {
-        if (f.key === 'startDate') defaultData[f.key] = 'January 3, 2026';
-        else if (f.key === 'endDate') defaultData[f.key] = 'June 12, 2026';
-        else if (f.key === 'duration' || f.key === 'durationOfMembership') defaultData[f.key] = '5 Years';
-        else defaultData[f.key] = f.placeholder.replace('e.g., ', '');
-      }
-    });
-    setGeneratorInputs(defaultData);
+  const handleOpenPrintLayout = () => {
+    window.print();
   };
-
-  // Search filter
-  const filteredCategories = categories.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] text-neutral-800 flex flex-col font-sans">
-      {/* Premium Gradient Header Belt */}
-      <header className="bg-white border-b border-gray-100 shadow-xs sticky top-0 z-40 navbar">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            {/* Logo area */}
-            <div className="flex items-center gap-3">
-              <div className="bg-[#006e4a] text-white p-2.5 rounded-xl shadow-xs flex items-center justify-center">
-                <FileText className="h-6 w-6" id="app-logo-icon" />
-              </div>
-              <div>
-                <span className="font-extrabold text-xl tracking-tight text-neutral-900 flex items-center gap-1.5">
-                  DocMint <span className="bg-emerald-100 text-[#006e4a] text-[10px] font-black px-1.5 py-0.5 rounded-md">Pro</span>
-                </span>
-                <p className="text-[10px] text-gray-400 hidden sm:block">Professional Academic & Reference Ledger</p>
-              </div>
-            </div>
+    <div className="bg-white min-h-screen text-black flex flex-col justify-between selection:bg-[#00c060]/30 selection:text-neutral-900 font-sans">
+      
+      {/* Dynamic Navigation Rails */}
+      <Navbar 
+        currentUser={currentUser} 
+        onLogout={handleLogout} 
+        onOpenAuth={() => setAuthModalOpen(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        setIsDraftingActive={setIsDraftingActive}
+      />
 
-            {/* Desktop Navigation */}
-            {user ? (
-              <nav className="hidden md:flex space-x-1 items-center">
-                <button 
-                  onClick={() => { setActiveTab('generate'); setSelectedCategory(null); }}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'generate' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                >
-                  Document Templates
-                </button>
-                <button 
-                  onClick={() => setActiveTab('my-docs')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'my-docs' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                >
-                  My Documents Vault {documents.length > 0 && <span className="ml-1 bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">{documents.length}</span>}
-                </button>
-                <button 
-                  onClick={() => setActiveTab('payments')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'payments' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                >
-                  Billing Logs
-                </button>
-                <button 
-                  onClick={() => setActiveTab('profile')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${activeTab === 'profile' ? 'bg-[#e6f4ea] text-[#006e4a]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                >
-                  Account Profile
-                </button>
-
-                {user.role === 'admin' && (
-                  <button 
-                    onClick={() => setActiveTab('admin')}
-                    className={`px-3.5 py-2 rounded-lg text-sm font-extrabold transition flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200`}
-                  >
-                    <Shield className="h-4 w-4" />
-                    Admin Panel
-                  </button>
-                )}
-
-                <div className="h-6 w-px bg-gray-200 mx-2"></div>
-
-                <div className="flex items-center gap-3 pl-2">
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-gray-900">{user.name}</p>
-                    <p className="text-[10px] text-gray-500 capitalize">{user.role}</p>
-                  </div>
-                  <button 
-                    onClick={logout}
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-150 rounded-lg transition"
-                    title="Log Out"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </button>
-                </div>
-              </nav>
-            ) : (
-              <div className="hidden md:flex items-center gap-4">
-                <span className="text-xs text-gray-400">Secure AES-256 Platform</span>
-                <span className="bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1 rounded-md font-mono">100% Secure Checkout</span>
-              </div>
-            )}
-
-            {/* Mobile Hamburger block */}
-            <div className="flex md:hidden items-center gap-2">
-              {user && (
-                <button 
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="p-2 text-gray-600 hover:text-neutral-900 hover:bg-gray-50 rounded-lg transition"
-                >
-                  {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && user && (
-          <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2 pb-4 space-y-1 block">
-            <button 
-              onClick={() => { setActiveTab('generate'); setMobileMenuOpen(false); setSelectedCategory(null); }}
-              className="w-full text-left block px-3 py-2 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            >
-              Document Templates
-            </button>
-            <button 
-              onClick={() => { setActiveTab('my-docs'); setMobileMenuOpen(false); }}
-              className="w-full text-left block px-3 py-2 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            >
-              My Documents Vault
-            </button>
-            <button 
-              onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }}
-              className="w-full text-left block px-3 py-2 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            >
-              Payment History
-            </button>
-            <button 
-              onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
-              className="w-full text-left block px-3 py-2 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            >
-              Profile Settings
-            </button>
-            {user.role === 'admin' && (
-              <button 
-                onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }}
-                className="w-full text-left flex items-center gap-2 px-3 py-2 text-base font-bold bg-amber-50 text-amber-800 border-l-4 border-amber-500 rounded-r-md"
-              >
-                <Shield className="h-4 w-4" />
-                Admin Panel
-              </button>
-            )}
-            <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
-              </div>
-              <button 
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold"
-              >
-                Sign Out
-              </button>
-            </div>
+      {/* Main Container */}
+      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in print:p-0">
+        
+        {/* Printable Section wrapper for raw documents printouts */}
+        {activeTab === 'dashboard' && currentDocument && currentDocument.paid && (
+          <div className="hidden print:block absolute inset-0 bg-white z-[9999] p-0">
+            <CertificatePreview doc={currentDocument} isPrintMode={true} />
           </div>
         )}
-      </header>
 
-      {/* Primary Layout Block */}
-      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        
-
-        {/* NO USER SESSION VIEW: Render Beautiful Landing & Unified Hero with Auth Cards */}
-        {!user ? (
-          <div>
-            {/* Visual Hero Intro Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
-              <div className="lg:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-[#006e4a] text-xs font-bold">
-                  <span className="flex h-2 w-2 rounded-full bg-[#0f9d58] animate-pulse"></span>
-                  Modern Academic & Administrative Drafting
-                </div>
-                
-                <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold text-neutral-900 tracking-tight leading-none">
-                  AI-Powered Beautiful <br className="hidden md:inline"/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-[#006e4a] font-black">
-                    Compliant Documents
-                  </span>
-                </h1>
-                
-                <p className="text-gray-600 text-base leading-relaxed max-w-xl">
-                  Save hours drafting reference, attestation, SIWES, and recommendation letters. DocMint templates are aggregated from accredited institutions, professionally formatted, and embedded with individual QR code verify cards.
-                </p>
-
-                {/* Proof Benefits Row */}
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
-                  <div>
-                    <p className="text-2xl font-black text-[#006e4a]">15+</p>
-                    <p className="text-xs text-gray-500 font-medium">Standard Formats</p>
+        {/* 🏛️ VIEW 1: DRAFTING CONSOLE (STUDIO) */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6 print:hidden">
+            {!currentUser ? (
+              /* GUEST RECEPTION LANDING (Screenshot 3 Style) */
+              <div className="space-y-12 py-6">
+                {/* Hero card based on Screenshot 3 */}
+                <div className="border-2 border-black rounded-3xl p-8 sm:p-14 text-center max-w-4xl mx-auto bg-white">
+                  <div className="bg-black text-white border border-black text-[11px] font-black uppercase px-4 py-1.5 rounded-full inline-flex items-center space-x-2 mb-6">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00c060] animate-pulse"></span>
+                    <span>Modern Academic & Administrative Drafting</span>
                   </div>
-                  <div>
-                    <p className="text-2xl font-black text-[#006e4a]">100%</p>
-                    <p className="text-xs text-gray-500 font-medium">Anti-Forge Compliant</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-black text-[#006e4a]">Pay-as-you-go</p>
-                    <p className="text-xs text-gray-500 font-medium">Instant PDF Download</p>
+                  <h1 className="text-black font-display font-black text-3.5xl sm:text-5xl lg:text-6.5xl tracking-normal leading-[1.05] max-w-4xl mx-auto mb-6 uppercase">
+                    AI-Powered Beautiful Compliant Documents
+                  </h1>
+                  <p className="text-neutral-500 text-xs sm:text-sm mt-2 max-w-2xl mx-auto leading-relaxed font-semibold">
+                    Save hours drafting reference, attestation, SIWES, and recommendation letters. DocMint templates are aggregated from accredited institutions, professionally formatted, and embedded with individual QR code verify cards.
+                  </p>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+                    <button 
+                      onClick={() => setAuthModalOpen(true)}
+                      className="bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black font-black text-xs uppercase tracking-wider py-4_5 px-10 rounded-2xl transition-all w-full sm:w-auto cursor-pointer"
+                    >
+                      Console Access
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setActiveTab('verify');
+                      }}
+                      className="bg-white hover:bg-neutral-50 text-black border-2 border-black font-black text-xs uppercase tracking-wider py-4_5 px-10 rounded-2xl transition-all w-full sm:w-auto cursor-pointer"
+                    >
+                      Verify Document
+                    </button>
                   </div>
                 </div>
 
-                {/* Quick Guide section */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-2xs space-y-3">
-                  <h3 className="font-bold text-sm text-neutral-900">How DocMint Works:</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-extrabold text-[#006e4a] block mb-1">01. Select Format</span>
-                      Browse attestation, recommendation, SIWES, or request templates.
+                {/* Steps banner */}
+                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
+                  <div className="bg-white border-2 border-black rounded-2xl p-6 text-left flex items-start space-x-4">
+                    <div className="bg-black text-[#00c060] border border-black text-xs font-black p-3 rounded-xl h-10 w-10 flex items-center justify-center">01</div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-black">Browse Formats</h4>
+                      <p className="text-xs text-neutral-400 mt-1 leading-relaxed font-medium">Select indigeneship, birth, character referee, or recommendation models.</p>
                     </div>
-                    <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-extrabold text-[#006e4a] block mb-1">02. Fill Form Data</span>
-                      Input parameters. Our AI algorithm aggregates perfect institutional vocabulary.
+                  </div>
+                  <div className="bg-white border-2 border-black rounded-2xl p-6 text-left flex items-start space-x-4">
+                    <div className="bg-black text-[#00c060] border border-black text-xs font-black p-3 rounded-xl h-10 w-10 flex items-center justify-center">02</div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-black">Assemble Variables</h4>
+                      <p className="text-xs text-neutral-400 mt-1 leading-relaxed font-medium">Enter student coordinates, church clergy titles, or local state references.</p>
                     </div>
-                    <div className="p-3 bg-neutral-50 rounded-lg">
-                      <span className="font-extrabold text-[#006e4a] block mb-1">03. Checkout & Print</span>
-                      Unlock unlimited professional PDF printouts with integrated custom letterheads.
+                  </div>
+                  <div className="bg-white border-2 border-black rounded-2xl p-6 text-left flex items-start space-x-4">
+                    <div className="bg-black text-[#00c060] border border-black text-xs font-black p-3 rounded-xl h-10 w-10 flex items-center justify-center">03</div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-black">Unlock Draft</h4>
+                      <p className="text-xs text-neutral-400 mt-1 leading-relaxed font-medium">Instantly verify compiled templates and download official high-fidelity copies in NGN.</p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Grid of Templates for Demo */}
+                <div className="pt-8 text-center max-w-6xl mx-auto">
+                  <div className="mb-6">
+                    <span className="text-[#00c060] text-[10px] font-black tracking-widest uppercase font-sans">CATALOGUE</span>
+                    <h2 className="text-2xl font-black text-black tracking-tight mt-1 uppercase">Available Document Models</h2>
+                    <p className="text-xs text-neutral-400 mt-0.5 font-medium">Explore our professional presets ready for draft generation.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {categories.map((cat) => (
+                      <div key={cat.id} className="bg-white border-2 border-black rounded-2xl p-5 text-left flex flex-col justify-between transition-all">
+                        <div>
+                          <span className="bg-black text-white border border-black text-[9px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">₦{cat.priceNGN.toLocaleString()} NGN</span>
+                          <h3 className="font-extrabold text-neutral-950 mt-3.5 text-base leading-tight uppercase font-display">{cat.name}</h3>
+                          <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed line-clamp-2">{cat.description}</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setAuthModalOpen(true);
+                          }}
+                          className="mt-4 bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black py-2.5 w-full rounded-xl text-xs font-black uppercase tracking-wider transition-all text-center cursor-pointer"
+                        >
+                          Use Format →
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-
-              {/* Secure Auth Card Portal */}
-              <div className="lg:col-span-5 bg-white border border-gray-100 shadow-xl rounded-2xl p-6 sm:p-8 relative">
-                <div className="flex border-b border-gray-100 pb-3 mb-6">
-                  <button 
-                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'login' ? 'border-b-2 border-[#006e4a] text-[#006e4a]' : 'text-gray-400'}`}
-                  >
-                    Secure Sign In
-                  </button>
-                  <button 
-                    onClick={() => { setAuthMode('register'); setAuthError(''); }}
-                    className={`flex-1 text-center pb-2 text-sm font-extrabold ${authMode === 'register' ? 'border-b-2 border-[#006e4a] text-[#006e4a]' : 'text-gray-400'}`}
-                  >
-                    Create Account
-                  </button>
+            ) : !isDraftingActive ? (
+              /* LOGGED IN MAIN HOME (Screenshot 1 & 2 Style) */
+              <div className="space-y-6 text-left animate-fade-in font-sans">
+                {/* Greeting */}
+                <div>
+                  <span className="text-neutral-400 font-extrabold tracking-wider text-[11px] uppercase">GREETINGS, AUTHORIZED ACCESS</span>
+                  <h1 className="text-3xl font-black tracking-tight text-black mt-1 leading-none font-display uppercase">
+                    {currentUser.name} 👋
+                  </h1>
                 </div>
 
-                {authError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-150 text-red-700 text-xs rounded-lg flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{authError}</span>
-                  </div>
-                )}
+                {/* Modern search bar */}
+                <div className="relative max-w-xl w-full">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <Search className="w-5 h-5" />
+                  </span>
+                  <input 
+                    type="text" 
+                    placeholder="Search 15+ formats..." 
+                    className="w-full bg-white border-2 border-black rounded-2xl pl-12 pr-4 py-4 text-sm text-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#00c060]/20 focus:border-[#00c060] transition-all font-sans"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
 
-                {authSuccess && (
-                  <div className="mb-4 p-3 bg-green-50 border border-green-150 text-green-700 text-xs rounded-lg flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>{authSuccess}</span>
-                  </div>
-                )}
+                {/* Wallet Balance Widget & Stats Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Wallet card (matches Screenshot 1 & 2) */}
+                  <div className="bg-black text-white rounded-3xl p-6 border-2 border-black relative overflow-hidden flex flex-col justify-between h-[180px]">
+                    <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-44 h-44 bg-[#00c060]/10 rounded-full blur-xl pointer-events-none"></div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#00c060] flex items-center gap-1.5 leading-none">
+                        <Wallet className="w-3.5 h-3.5" />
+                        WALLET BALANCE
+                      </span>
+                      <span className="bg-white/10 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-widest text-[#00c060] border border-white/5 flex items-center gap-1.5 leading-none">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#00c060] animate-pulse"></span>
+                        ACTIVE
+                      </span>
+                    </div>
 
-                <form onSubmit={handleAuth} className="space-y-4">
-                  {authMode === 'register' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-wide mt-2 font-display">
+                      ₦{(currentUser.walletBalance ?? 0).toLocaleString()} <span className="text-sm font-bold opacity-75">NGN</span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 mt-4">
+                      <button 
+                        onClick={() => triggerQuickTopup(2000)}
+                        className="bg-[#00c060] text-white hover:bg-[#00a352] border border-black font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all flex items-center space-x-1 scale-100 active:scale-95 cursor-pointer"
+                      >
+                        <span>+ Top Up ₦2,000</span>
+                      </button>
+                      <button 
+                        onClick={() => triggerQuickTopup(5000)}
+                        className="bg-white text-black hover:bg-neutral-100 border-2 border-black font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                      >
+                        <span>+ ₦5,000</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Stacked Statistics widgets */}
+                  <div className="flex flex-col gap-4 col-span-1">
+                    {/* Widget 1: Documents Drafted */}
+                    <div className="bg-white border-2 border-black rounded-2xl p-4.5 flex items-center justify-between h-[82px]">
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="e.g., Amina Yusuf"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.name}
-                          onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                        />
+                        <span className="block text-[9px] font-black text-neutral-500 tracking-wider leading-none uppercase">DOCUMENTS</span>
+                        <span className="block text-2.5xl font-black text-black mt-1.5 leading-none font-display">
+                          {myDocuments.length}
+                        </span>
+                        <span className="block text-[10px] text-neutral-400 font-bold mt-1 leading-none">Total generated</span>
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">User Type / Affiliation</label>
-                        <select
-                          required
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.userType}
-                          onChange={(e) => setAuthForm({ ...authForm, userType: e.target.value as any })}
-                        >
-                          <option value="student">🎓 Student / Scholar</option>
-                          <option value="faculty">🏫 Faculty / Academic Staff</option>
-                          <option value="organization">🏢 Institution / Agency</option>
-                          <option value="general">💼 General Professional</option>
-                        </select>
+                      <div className="bg-[#00c060]/10 text-[#00c060] border border-[#00c060]/20 p-3 rounded-xl">
+                        <FileText className="w-5 h-5" />
                       </div>
                     </div>
-                  )}
 
-                  <div className={authMode === 'register' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-4'}>
+                    {/* Widget 2: Spent this month */}
+                    <div className="bg-white border-2 border-black rounded-2xl p-4.5 flex items-center justify-between h-[82px]">
+                      <div>
+                        <span className="block text-[9px] font-black text-neutral-500 tracking-wider leading-none uppercase">THIS MONTH</span>
+                        <span className="block text-2.5xl font-black text-black mt-1.5 leading-none font-display">
+                          ₦{paymentHistory.reduce((s, p) => s + (p.status === 'success' ? p.amount : 0), 0).toLocaleString()}
+                        </span>
+                        <span className="block text-[10px] text-neutral-400 font-bold mt-1 leading-none">Spent on letters</span>
+                      </div>
+                      <div className="bg-[#00c060]/10 text-[#00c060] border border-[#00c060]/20 p-3 rounded-xl font-sans">
+                        <Coins className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Template filters & headers */}
+                <div className="pt-4 font-sans">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
-                      <input 
-                        type="email" 
-                        required 
-                        placeholder="e.g., amina@edudocs.ai"
-                        className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                        value={authForm.email}
-                        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      <h2 className="text-xl font-black text-black tracking-tight leading-none uppercase font-display">Quick actions</h2>
+                      <p className="text-xs text-neutral-405 font-medium mt-1 leading-none">Pick an administrative template to compile instantly.</p>
+                    </div>
+
+                    {/* Filter pills scroll */}
+                    <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 shrink-0">
+                      <button 
+                        onClick={() => setSelectedPill('all')}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                          selectedPill === 'all' 
+                            ? 'bg-black text-white border-2 border-black' 
+                            : 'bg-white text-black border hover:border-black hover:bg-neutral-50'
+                        }`}
+                      >
+                        All Templates
+                      </button>
+                      <button 
+                        onClick={() => setSelectedPill('attestation')}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                          selectedPill === 'attestation' 
+                            ? 'bg-black text-white border-2 border-black' 
+                            : 'bg-white text-black border hover:border-black hover:bg-neutral-50'
+                        }`}
+                      >
+                        Attestations & Certs
+                      </button>
+                      <button 
+                        onClick={() => setSelectedPill('recommendation')}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                          selectedPill === 'recommendation' 
+                            ? 'bg-black text-white border-2 border-black' 
+                            : 'bg-white text-black border hover:border-black hover:bg-neutral-50'
+                        }`}
+                      >
+                        Recommendations & Refs
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Template grid cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                    {categories
+                      .filter((cat) => {
+                        const matchQuery = cat.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                           cat.description.toLowerCase().includes(searchQuery.toLowerCase());
+                        let matchPill = true;
+                        if (selectedPill === 'attestation') {
+                          matchPill = ['lga-origin', 'birth-certificate', 'church-attestation', 'character-reference'].includes(cat.id);
+                        } else if (selectedPill === 'recommendation') {
+                          matchPill = !['lga-origin', 'birth-certificate', 'church-attestation', 'character-reference'].includes(cat.id);
+                        }
+                        return matchQuery && matchPill;
+                      })
+                      .map((cat) => (
+                        <div key={cat.id} className="bg-white border-2 border-black rounded-3xl p-5 transition-all flex flex-col justify-between relative group text-left">
+                          <div>
+                            <span className="bg-black text-white text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider border border-black">
+                              AUTHENTIC {cat.templateStyle || 'ADMIN'} MODEL
+                            </span>
+                            <h3 className="font-extrabold text-black mt-3 text-base leading-tight group-hover:text-[#00c060] transition-colors uppercase font-display">{cat.name}</h3>
+                            <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed line-clamp-2">{cat.description}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-neutral-150 mt-5 pt-4">
+                            <span className="text-[#00c060] font-black font-sans text-sm">₦{cat.priceNGN.toLocaleString()} NGN</span>
+                            <button 
+                              onClick={() => {
+                                setSelectedCategory(cat);
+                                setCurrentDocument(null);
+                                setIsDraftingActive(true);
+                              }}
+                              className="bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black px-4 py-2.5 rounded-xl font-black text-xs tracking-wider transition-all uppercase leading-none cursor-pointer"
+                            >
+                              Write →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  {/* Empty state when query matches nothing */}
+                  {categories.filter((cat) => {
+                    const matchQuery = cat.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                       cat.description.toLowerCase().includes(searchQuery.toLowerCase());
+                    let matchPill = true;
+                    if (selectedPill === 'attestation') {
+                      matchPill = ['lga-origin', 'birth-certificate', 'church-attestation', 'character-reference'].includes(cat.id);
+                    } else if (selectedPill === 'recommendation') {
+                      matchPill = !['lga-origin', 'birth-certificate', 'church-attestation', 'character-reference'].includes(cat.id);
+                    }
+                    return matchQuery && matchPill;
+                  }).length === 0 && (
+                    <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-black max-w-lg mx-auto mt-6">
+                      <Search className="w-10 h-10 mx-auto text-neutral-350 stroke-1" />
+                      <h4 className="text-sm font-bold text-black mt-2 uppercase">No matching formats found</h4>
+                      <p className="text-xs text-neutral-400 mt-1">Try resetting your filters or altering your search query coordinates.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* ACTIVE STUDIO EDITOR WORKSPACE */
+              <div className="space-y-6 animate-fade-in text-left">
+                {/* Back Link to Home */}
+                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-4 font-sans">
+                  <button 
+                    onClick={() => {
+                      setIsDraftingActive(false);
+                      setCurrentDocument(null);
+                    }} 
+                    className="flex items-center space-x-1.5 text-black hover:text-[#00c060] font-black text-xs uppercase tracking-wider cursor-pointer"
+                  >
+                    <span>← Back to Dashboard Overview</span>
+                  </button>
+                  <div className="bg-black text-[#00c060] border border-black text-[9px] font-black uppercase px-2.5 py-1 rounded">
+                    Active Assembler: {selectedCategory?.name}
+                  </div>
+                </div>
+
+                {/* Core Work Station Side-by-Side Grid */}
+                <div className="grid grid-cols-12 gap-6">
+                  
+                  {/* Left Column: Selector and Forms */}
+                  <div className="col-span-12 lg:col-span-5 space-y-6">
+                
+                {/* 1. Pick a Document Category */}
+                <div className="bg-white rounded-2xl border-2 border-black p-5 space-y-3">
+                  <h3 className="text-xs font-black text-black uppercase tracking-widest border-b-2 border-black pb-2">
+                    1. Select Document Category
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    {categories.map((cat) => {
+                      const isSelected = selectedCategory?.id === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setCurrentDocument(null);
+                          }}
+                          className={`flex items-center justify-between text-left p-2.5 rounded-xl border transition-all ${
+                            isSelected 
+                              ? 'border-black bg-neutral-50 border-l-[6px]' 
+                              : 'border-neutral-200 hover:bg-neutral-50'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? 'bg-black text-[#00c060]' : 'bg-neutral-100 text-slate-500'}`}>
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block text-xs font-black truncate text-black uppercase tracking-tight">{cat.name}</span>
+                              <span className="block text-[10px] text-neutral-401 truncate max-w-[200px] font-medium">{cat.description}</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-black text-[#00c060] bg-black border border-black px-1.5 py-0.5 rounded shrink-0">
+                            ₦{cat.priceNGN.toLocaleString()}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Fill variable inputs */}
+                {selectedCategory && (
+                  <div className="bg-white rounded-2xl border-2 border-black p-5 space-y-4">
+                    <h3 className="text-xs font-black text-black uppercase tracking-widest border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span>2. Input Template Fields</span>
+                      <span className="bg-black text-[#00c060] border border-black text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                        {selectedCategory.id}
+                      </span>
+                    </h3>
+
+                    <div className="space-y-3.5">
+                      {selectedCategory.requiredFields.map((field) => (
+                        <div key={field.key} className="space-y-1 text-left">
+                          <label className="block text-xs font-bold text-black uppercase tracking-wide">
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </label>
+                          
+                          {field.type === 'textarea' ? (
+                            <textarea
+                              rows={3}
+                              className="w-full text-xs p-2.5 border-2 border-black rounded-lg focus:ring-1 focus:ring-[#00c060] focus:border-[#00c060] text-black font-sans placeholder-neutral-400"
+                              placeholder={field.placeholder}
+                              value={inputs[field.key] || ''}
+                              onChange={(e) => setInputs({ ...inputs, [field.key]: e.target.value })}
+                            />
+                          ) : field.type === 'select' ? (
+                            <select
+                              className="w-full text-xs p-2.5 border-2 border-black rounded-lg focus:ring-1 focus:ring-[#00c060] focus:border-[#00c060] text-black font-sans"
+                              value={inputs[field.key] || ''}
+                              onChange={(e) => setInputs({ ...inputs, [field.key]: e.target.value })}
+                            >
+                              <option value="">-- Choose style --</option>
+                              {field.options?.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              className="w-full text-xs p-2.5 border-2 border-black rounded-lg focus:ring-1 focus:ring-[#00c060] focus:border-[#00c060] text-black font-sans placeholder-neutral-400"
+                              placeholder={field.placeholder}
+                              value={inputs[field.key] || ''}
+                              onChange={(e) => setInputs({ ...inputs, [field.key]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Dynamic Real-time Live Security Local-Backup Badge */}
+                      <div className="flex items-center justify-between bg-[#fcfdfa] px-3.5 py-3 rounded-xl border-2 border-dashed border-neutral-300 mt-4 text-[10px] text-neutral-500 font-mono select-none">
+                        <div className="flex items-center space-x-2">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00c060] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00c060]"></span>
+                          </span>
+                          <span className="font-extrabold text-black uppercase tracking-tight">Active Archive Mode</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-black uppercase block leading-none mb-0.5 text-[9.5px]">✓ SECURED & AUTO-SAVED</span>
+                          <span className="text-[8.5px] text-neutral-400 block leading-none">Console Cache Synchronized</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Customize Style & Brand letterheads */}
+                <div className="bg-white rounded-2xl border-2 border-black p-5 space-y-4 font-sans">
+                  <h3 className="text-xs font-black text-black uppercase tracking-widest border-b-2 border-black pb-2">
+                    3. Letterhead & Brand Customizer
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Letterhead Preset</label>
+                      <select
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black bg-white"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'unilag') {
+                            setLetterheadName('UNIVERSITY OF LAGOS');
+                            setLetterheadAddress('OFFICE OF STUDENT WELFARE AFFAIRS, SENATE HOUSE, AKOKA, LAGOS');
+                            setLetterheadTitleColor('#1e40af');
+                            setLetterheadLineColor('#b45309');
+                            setLetterheadLineStyle('double');
+                            setSignerName('PROF. OLAYINKA ADEBAYO');
+                          } else if (val === 'futm') {
+                            setLetterheadName('FEDERAL UNIVERSITY OF TECHNOLOGY, MINNA');
+                            setLetterheadAddress('MAIN CAMPUS, GIDAN KWANO, P.M.B. 65, MINNA, NIGER STATE');
+                            setLetterheadTitleColor('#064e3b');
+                            setLetterheadLineColor('#d97706');
+                            setLetterheadLineStyle('double');
+                            setSignerName('PROF. AMINA S. BELLO');
+                          } else if (val === 'church') {
+                            setLetterheadName('REDEEMED CHRISTIAN CHURCH OF GOD');
+                            setLetterheadAddress('GRACE SANCTUARY, SABO METROPOLIS, IKEJA, LAGOS STATE');
+                            setLetterheadTitleColor('#b91c1c');
+                            setLetterheadLineColor('#1e3a8a');
+                            setLetterheadLineStyle('solid');
+                            setSignerName('PASTOR TIMOTHY GARI');
+                          } else if (val === 'corporate') {
+                            setLetterheadName('FLUTTERWAVE TECHNOLOGIES PLC');
+                            setLetterheadAddress('43 MARINA ROAD, BROAD STREET HARBOUR, LAGOS CONCOURSE');
+                            setLetterheadTitleColor('#111111');
+                            setLetterheadLineColor('#475569');
+                            setLetterheadLineStyle('solid');
+                            setSignerName('MRS. CHIOMA ADELEKE');
+                          }
+                        }}
+                      >
+                        <option value="futm">⭐ FUT Minna Academic</option>
+                        <option value="unilag">🏫 UNILAG Senate Block</option>
+                        <option value="church">⛪ Redeemed Sanctuary</option>
+                        <option value="corporate">🏢 Flutterwave Corp HQ</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Border Style Rule</label>
+                      <select
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black bg-white"
+                        value={letterheadLineStyle}
+                        onChange={(e: any) => setLetterheadLineStyle(e.target.value)}
+                      >
+                        <option value="double">Double Border</option>
+                        <option value="solid">Single Solid</option>
+                        <option value="dotted">Fine Dotted</option>
+                        <option value="dashed">Dashed Pattern</option>
+                        <option value="none">No Separator</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-2 space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Letterhead Custom Header Name</label>
+                      <input
+                        type="text"
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black font-medium"
+                        value={letterheadName}
+                        onChange={(e) => setLetterheadName(e.target.value)}
                       />
                     </div>
 
-                    {authMode === 'register' ? (
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
-                        <input 
-                          type="tel" 
-                          required 
-                          placeholder="e.g., +234 80 1234 5678"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.phone}
-                          onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Secret Password</label>
-                        <input 
-                          type="password" 
-                          required 
-                          placeholder="••••••••"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.password}
-                          onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
+                    <div className="col-span-2 space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Header Sub-Address</label>
+                      <input
+                        type="text"
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black font-medium"
+                        value={letterheadAddress}
+                        onChange={(e) => setLetterheadAddress(e.target.value)}
+                      />
+                    </div>
 
-                  {authMode === 'register' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-bold">Institution / Campus Name</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="e.g., University of Lagos"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.institution}
-                          onChange={(e) => setAuthForm({ ...authForm, institution: e.target.value })}
+                    <div className="space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Logo align</label>
+                      <select
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black bg-white"
+                        value={letterheadLogoAlign}
+                        onChange={(e: any) => setLetterheadLogoAlign(e.target.value)}
+                      >
+                        <option value="left">Left Edge</option>
+                        <option value="center">Center top</option>
+                        <option value="right">Right Edge</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 text-left">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Signer Name</label>
+                      <input
+                        type="text"
+                        className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black font-medium"
+                        value={signerName}
+                        onChange={(e) => setSignerName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="col-span-2 grid grid-cols-2 gap-3 pb-2 border-t-2 border-black pt-2">
+                      <div className="space-y-1 text-left">
+                        <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Custom Logo URL</label>
+                        <input
+                          type="text"
+                          className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black font-mono"
+                          value={letterheadLogo}
+                          onChange={(e) => setLetterheadLogo(e.target.value)}
                         />
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Department / Desk</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g., Computer Science"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.department}
-                          onChange={(e) => setAuthForm({ ...authForm, department: e.target.value })}
+                      <div className="space-y-1 text-left">
+                        <label className="block text-[10px] font-black uppercase tracking-wide text-neutral-600">Watermark URL</label>
+                        <input
+                          type="text"
+                          className="w-full text-[11px] p-2 border-2 border-black rounded-lg text-black font-mono"
+                          value={watermarkLogo}
+                          onChange={(e) => setWatermarkLogo(e.target.value)}
                         />
                       </div>
                     </div>
-                  )}
 
-                  {authMode === 'register' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">ID / Matric / Serial No.</label>
+                    <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t-2 border-black">
+                      <label className="flex items-center space-x-2 text-[11px] font-bold text-black uppercase cursor-pointer">
                         <input 
-                          type="text" 
-                          placeholder="e.g., FSS/2026/0892"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.matricNo}
-                          onChange={(e) => setAuthForm({ ...authForm, matricNo: e.target.value })}
+                          type="checkbox" 
+                          checked={addWatermark} 
+                          onChange={(e) => setAddWatermark(e.target.checked)} 
+                          className="rounded text-[#00c060] focus:ring-[#00c060] border-2 border-black w-4 h-4"
                         />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Secret Password</label>
+                        <span>Enforce Watermarks Draft overlay</span>
+                      </label>
+                      
+                      <label className="flex items-center space-x-2 text-[11px] font-bold text-black uppercase cursor-pointer">
                         <input 
-                          type="password" 
-                          required 
-                          placeholder="••••••••"
-                          className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#006e4a] transition"
-                          value={authForm.password}
-                          onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                          type="checkbox" 
+                          checked={addQrCode} 
+                          onChange={(e) => setAddQrCode(e.target.checked)} 
+                          className="rounded text-[#00c060] focus:ring-[#00c060] border-2 border-black w-4 h-4"
                         />
-                      </div>
+                        <span>Validate with tracking QR Code</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 text-[11px] font-bold text-black uppercase cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={addSignatureLine} 
+                          onChange={(e) => setAddSignatureLine(e.target.checked)} 
+                          className="rounded text-[#00c060] focus:ring-[#00c060] border-2 border-black w-4 h-4"
+                        />
+                        <span>Enforce signature block</span>
+                      </label>
                     </div>
-                  )}
-
-                  {authMode === 'register' && (
-                    <div className="bg-emerald-50 text-[#006e4a] p-2.5 rounded-lg border border-emerald-100 text-[10px] sm:text-xs">
-                      ✨ <strong>Bonus Promo:</strong> Your brand new credentials will be pre-allocated with a <strong>₦2,500</strong> test balance instantly!
-                    </div>
-                  )}
-
-                  <button 
-                    type="submit" 
-                    disabled={authLoading}
-                    className="w-full bg-[#006e4a] hover:bg-[#005c3e] text-white py-2.5 rounded-xl text-sm font-extrabold hover:opacity-95 transition shadow-xs flex items-center justify-center gap-1"
-                  >
-                    {authLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Authenticating Securely...
-                      </>
-                    ) : (
-                      <>
-                        {authMode === 'login' ? 'Access Account' : 'Initialize Credentials'}
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                <p className="mt-4 text-center text-[11px] text-gray-400">
-                  By executing this checkout session, you verify authorization and compatibility with our terms. All activities logged transparently for defense audits.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* USER HAS SESSIONS: RENDER THE CORE SaaS DASHBOARD */
-          <div>
-            
-            {/* INCOMPLETE VERIFICATION ALERT */}
-            {!user.verified && (
-              <div className="mb-6 bg-amber-55 bg-orange-50 border border-orange-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-2.5">
-                  <AlertCircle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold text-neutral-900">Please Verify Your Email Address</p>
-                    <p className="text-xs text-neutral-700">Receive a simulation code or skip instantly to unlock full PDF downloads after checkout tests.</p>
                   </div>
                 </div>
-                <button 
-                  onClick={triggerVerificationSimulation}
-                  className="bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-4 rounded-lg font-bold text-xs shrink-0 transition"
+
+                {/* Main Action Trigger */}
+                <button
+                  onClick={currentUser ? generatePreview : handleTryGenerate}
+                  disabled={generating}
+                  className="w-full bg-[#00c060] text-white hover:bg-[#00c060] disabled:bg-neutral-300 disabled:text-neutral-500 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 border-2 border-black transition-all h-14 cursor-pointer"
                 >
-                  Verify Email Instantly
+                  {generating ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin text-white" />
+                      <span>Generating Document Draft with Gemini AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 text-white" />
+                      <span>{currentUser ? 'Generate AI Preview Draft' : 'Sign in to generate preview'}</span>
+                    </>
+                  )}
                 </button>
               </div>
-            )}
 
-            {/* TAB CONTENT: GENERATE DOCUMENT TAB */}
-            {activeTab === 'generate' && (
-              <div className="space-y-6">
-                
-                {/* If individual category hasn't been selected yet, render Category Catalog */}
-                {!selectedCategory ? (
-                  <div className="space-y-6">
-                    {/* Welcome Greeting & Search */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-0.5">Welcome back,</p>
-                        <h1 className="text-3xl font-black text-neutral-900 flex items-center gap-2">
-                          {user.name} <span className="animate-bounce">👋</span>
-                        </h1>
-                      </div>
-                      
-                      {/* Clean Search Input */}
-                      <div className="relative w-full md:w-80">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                        <input 
-                          type="text" 
-                          placeholder="Search 15+ formats..." 
-                          className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-emerald-500 transition shadow-2xs"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
+              {/* Right Column: Live Sheet Preview Canvas */}
+              <div className="col-span-12 lg:col-span-7 flex flex-col">
+                <div className="bg-white rounded-2xl border-2 border-black p-5 space-y-4 flex-grow flex flex-col justify-between">
+                  <div className="border-b-2 border-black pb-3 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#00c060] animate-pulse"></div>
+                      <h3 className="text-xs font-black text-black uppercase tracking-widest leading-none">
+                        Live Sheet Preview Canvas
+                      </h3>
                     </div>
-
-                    {/* TOP DASHBOARD METRICS: WALLET & DOUBLE STATS */}
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                      {/* WALLET CARD */}
-                      <div className="md:col-span-7 bg-[#006e4a] text-white rounded-3xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between min-h-[190px]">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 opacity-95 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider">
-                              <CreditCard className="h-4 w-4" />
-                              <span>Wallet Balance</span>
-                            </div>
-                            <span className="bg-emerald-800/80 text-[10px] text-white font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                              Active
-                            </span>
-                          </div>
-                          
-                          <div className="text-3.5xl font-black tracking-tight font-sans flex items-baseline">
-                            ₦{(user.walletBalance ?? 2500).toLocaleString()} <span className="text-xs font-normal ml-1.5 opacity-80">NGN</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-emerald-600/50">
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleWalletTopUp(2000)}
-                              disabled={walletActionLoading !== null}
-                              className="bg-white hover:bg-[#f0fdf4] text-[#006e4a] h-10 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition whitespace-nowrap active:scale-95"
-                            >
-                              {walletActionLoading === 2000 ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <span>+ Top Up ₦2,000</span>
-                              )}
-                            </button>
-                            
-                            <button 
-                              onClick={() => handleWalletTopUp(5000)}
-                              disabled={walletActionLoading !== null}
-                              className="bg-[#0a6c42] hover:bg-[#006e4a] border border-white/20 text-white h-10 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition whitespace-nowrap active:scale-95"
-                            >
-                              {walletActionLoading === 5000 ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <span>+ ₦5,000</span>
-                              )}
-                            </button>
-                          </div>
-
-                          <button 
-                            onClick={() => setActiveTab('payments')}
-                            className="text-xs font-extrabold tracking-wide hover:underline opacity-95 flex items-center gap-1 transition"
-                          >
-                            History ↗
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* DOUBLE STATS CARDS */}
-                      <div className="md:col-span-5 grid grid-cols-2 gap-4">
-                        {/* DOCUMENTS CARD */}
-                        <div className="bg-white border border-gray-150 rounded-3xl p-5 flex flex-col justify-between shadow-2xs">
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Documents</span>
-                              <FileText className="h-4 w-4 text-emerald-600" />
-                            </div>
-                            
-                            <div className="mt-2.5 text-3xl font-black text-neutral-950 font-sans">
-                              {documents.filter(d => d.userId === user.id).length || 3}
-                            </div>
-                          </div>
-                          
-                          <p className="mt-2 text-[11px] text-gray-500 font-medium">Total generated</p>
-                        </div>
-
-                        {/* SPENT THIS MONTH */}
-                        <div className="bg-white border border-gray-150 rounded-3xl p-5 flex flex-col justify-between shadow-2xs">
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">This Month</span>
-                              <TrendingUp className="h-4 w-4 text-emerald-600" />
-                            </div>
-                            
-                            <div className="mt-2.5 text-2xl font-black text-neutral-950 font-sans tracking-tight">
-                              ₦{(payments.filter(p => p.userId === user.id && p.status === 'success' && p.categoryId !== 'topup').reduce((s, p) => s + p.amount, 0) || 4500).toLocaleString()}
-                            </div>
-                          </div>
-                          
-                          <p className="mt-2 text-[11px] text-gray-500 font-medium">Spent on letters</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* QUICK ACTIONS SECTION */}
-                    <div className="pt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h2 className="text-lg font-extrabold text-neutral-900 tracking-tight">Quick actions</h2>
-                          <p className="text-xs text-gray-500">Pick a template and we'll generate it instantly.</p>
-                        </div>
-                        
-                        <button 
-                          onClick={() => { setActiveTab('generate'); setSelectedCategory(null); }}
-                          className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
-                        >
-                          View all →
-                        </button>
-                      </div>
-
-                      {/* Filter Categories Tags */}
-                      <div className="flex flex-wrap gap-2 pb-1">
-                        <button 
-                          onClick={() => setCategoryFilter('all')}
-                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'all' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                          All Templates
-                        </button>
-                        <button 
-                          onClick={() => setCategoryFilter('attestation')}
-                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'attestation' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                          Attestations & Certs
-                        </button>
-                        <button 
-                          onClick={() => setCategoryFilter('reference')}
-                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition ${categoryFilter === 'reference' ? 'bg-[#006e4a] border-[#006e4a] text-white shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                          Recommendations & Refs
-                        </button>
-                      </div>
-
-                      {/* Grid of Templates */}
-                      {dataLoading ? (
-                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-150 shadow-2xs">
-                          <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
-                          <p className="text-xs text-gray-400">Loading templates from ledger...</p>
-                        </div>
-                      ) : filteredCategories.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-150">
-                          <Inbox className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">No template formats match your query.</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                          {filteredCategories.slice(0, 12).map((cat) => {
-                            return (
-                              <div 
-                                key={cat.id} 
-                                onClick={() => selectCategoryForGeneration(cat)}
-                                className="bg-white border border-gray-150 hover:border-[#006e4a] rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-2xs hover:shadow-xs cursor-pointer transition flex flex-col justify-between group active:scale-98"
-                              >
-                                <div className="space-y-3 sm:space-y-4">
-                                  {/* Circular green icon background */}
-                                  <div className="bg-[#e6f4ea] text-[#0f9d58] h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl flex items-center justify-center transition group-hover:scale-110">
-                                    <FileText className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
-                                  </div>
-                                  
-                                  <div className="space-y-1">
-                                    <h3 className="font-extrabold text-[#111827] text-xs sm:text-[13px] leading-snug group-hover:text-emerald-700 transition line-clamp-2 min-h-[32px] sm:min-h-0">
-                                      {cat.name}
-                                    </h3>
-                                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{cat.description}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-50 flex items-center justify-between text-[11px] sm:text-xs">
-                                  <span className="font-black text-[#0f9d58] font-mono">
-                                    ₦{cat.priceNGN.toLocaleString()}
-                                  </span>
-                                  <span className="text-[9px] sm:text-[10px] text-gray-400 font-extrabold group-hover:translate-x-0.5 transition flex items-center gap-0.5">
-                                    Write →
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* RECENT ACTIVITY SECTION */}
-                    <div className="pt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-extrabold text-neutral-900 tracking-tight">Recent activity</h2>
-                        <button 
-                          onClick={() => setActiveTab('my-docs')}
-                          className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
-                        >
-                          All documents →
-                        </button>
-                      </div>
-
-                      {/* Recent documents stream feed items */}
-                      {documents.filter(d => d.userId === user.id).length === 0 ? (
-                        <div className="bg-white border border-dashed border-gray-200 rounded-3xl p-8 text-center text-xs text-gray-400">
-                          No recent document logs. Select a template above to generate your first professional draft letter.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {documents
-                            .filter(d => d.userId === user.id)
-                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                            .slice(0, 4)
-                            .map((doc) => {
-                              return (
-                                <div 
-                                  key={doc.id}
-                                  className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-2xs transition"
-                                >
-                                  <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="bg-[#e6f4ea] text-[#0f9d58] h-10 w-10 rounded-2xl flex items-center justify-center shrink-0">
-                                      <FileText className="h-5 w-5" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-bold text-neutral-900 truncate">
-                                        {doc.title}
-                                      </p>
-                                      <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
-                                        <span>{doc.paid ? 'Offically Unlocked (Paid)' : 'Preview state'}</span>
-                                        <span>•</span>
-                                        <span>{new Date(doc.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    {doc.paid ? (
-                                      <button 
-                                        onClick={() => handlePrintDocument(doc)}
-                                        className="bg-[#f0fdf4] hover:bg-[#dcfce7] text-emerald-800 text-xs font-extrabold py-2 px-4 rounded-xl border border-emerald-100 transition inline-flex items-center justify-center gap-1 active:scale-95"
-                                      >
-                                        <Download className="h-3.5 w-3.5 shrink-0" />
-                                        <span>PDF</span>
-                                      </button>
-                                    ) : (
-                                      <button 
-                                        onClick={() => {
-                                          setCurrentDoc(doc);
-                                          const matchedCat = categories.find(c => c.id === doc.categoryId) || null;
-                                          if (matchedCat) setSelectedCategory(matchedCat);
-                                        }}
-                                        className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[11px] font-extrabold py-2 px-4 rounded-xl transition inline-flex items-center justify-center gap-1 active:scale-95"
-                                      >
-                                        <span>Checkout</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
+                    {currentDocument && (
+                      <span className={`text-[10px] font-extrabold px-2 py-1 rounded-md uppercase leading-none border-2 ${
+                        currentDocument.paid 
+                          ? 'bg-black text-[#00c060] border-black' 
+                          : 'bg-[#00c060] text-black border-black font-bold animate-pulse'
+                      }`}>
+                        {currentDocument.paid ? 'Official Unlocked ID' : 'DRAFT ONLY (LOCKED)'}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  /* SELECTED INDIVIDUAL CATEGORY DRAFTING EXPERIENCE */
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
-                    {/* Left Column: Input Panel & Layout Customization */}
-                    <div className="lg:col-span-5 bg-white border border-gray-150 rounded-xl shadow-xs overflow-hidden">
-                      {/* Header with back button */}
-                      <div className="bg-neutral-50 px-5 py-4 border-b border-gray-150 flex items-center justify-between">
-                        <div>
-                          <button 
-                            onClick={() => setSelectedCategory(null)}
-                            className="bg-white hover:bg-neutral-100 text-gray-600 hover:text-gray-900 text-[11px] font-bold py-1 px-2.5 rounded-md border border-gray-200 transition"
-                          >
-                            ← Back to list
-                          </button>
-                          <h3 className="font-extrabold text-neutral-900 mt-2 text-sm">Draft: {selectedCategory.name}</h3>
+
+                  {/* The Document Area */}
+                  <div className="flex-grow flex items-center justify-center py-4 bg-neutral-50 rounded-2xl p-3 border-2 border-dashed border-black min-h-[500px]">
+                    {currentDocument ? (
+                      /* If indigeneship style, render styled component; else classic letterhead */
+                      (currentDocument.categoryId === 'lga-origin' || currentDocument.categoryId === 'birth-certificate') ? (
+                        <div className="scale-[0.82] lg:scale-95 origin-center rounded-2xl bg-white border-2 border-black overflow-hidden">
+                          <CertificatePreview doc={currentDocument} />
                         </div>
-                        <span className="text-sm font-black text-neutral-900 font-mono">₦{selectedCategory.priceNGN.toLocaleString()}</span>
-                      </div>
-
-                      {/* Config Form */}
-                      <form onSubmit={generateDocumentDraft} className="p-5 space-y-4">
-                        
-                        {/* Interactive fill generator button helper */}
-                        <div className="flex justify-between items-center bg-blue-50/50 p-2.5 rounded-lg">
-                          <span className="text-[11px] text-blue-800 font-medium">Quick draft testing?</span>
-                          <button 
-                            type="button"
-                            onClick={() => populateDefaultFormValues(selectedCategory)}
-                            className="text-[10px] font-extrabold text-white bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition"
-                          >
-                            ⚡ Autofill Sample Values
-                          </button>
-                        </div>
-
-                        {/* Fields loop */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-2">Required Parameters</h4>
-                          {selectedCategory.requiredFields.map((field) => (
-                            <div key={field.key}>
-                              <label className="block text-xs font-bold text-neutral-700 mb-1">
-                                {field.label} {field.required && <span className="text-red-500">*</span>}
-                              </label>
-                              {field.key === 'state' ? (
-                                <select
-                                  required={field.required}
-                                  className="w-full bg-[#fdfdfd] border-2 border-emerald-600/20 hover:border-emerald-600/40 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:border-[#006e4a] transition"
-                                  value={(generatorInputs[field.key] || '').replace(/\s*[sS]tate\s*/g, '').trim()}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const suffix = (val && !val.includes('Abuja') && !val.includes('FCT') && !val.includes('State')) ? ' State' : '';
-                                    const finalVal = val ? `${val}${suffix}` : '';
-
-                                    // Automatically find and map the state style preset
-                                    const matchedPreset = Object.keys(PRESETS_DB).find(presetKey => {
-                                      const config = PRESETS_DB[presetKey];
-                                      return config.stateName.toLowerCase() === `${val} state`.toLowerCase() || 
-                                             config.stateName.toLowerCase() === val.toLowerCase() ||
-                                             config.stateName.toLowerCase().includes(val.toLowerCase()) ||
-                                             presetKey.toLowerCase().includes(val.toLowerCase());
-                                    });
-
-                                    setGeneratorInputs({ 
-                                      ...generatorInputs, 
-                                      [field.key]: finalVal,
-                                      lga: '', // Reset the LGA field whenever the state is changed
-                                      ...(matchedPreset ? { stylePreset: matchedPreset } : {})
-                                    });
-                                  }}
-                                >
-                                  <option value="">-- Select State of Origin --</option>
-                                  {NIGERIAN_STATES.map((st) => (
-                                    <option key={st} value={st}>
-                                      {st}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : field.key === 'lga' ? (
-                                <select
-                                  required={field.required}
-                                  className="w-full bg-[#fdfdfd] border-2 border-emerald-600/20 hover:border-emerald-600/40 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:border-[#006e4a] transition"
-                                  value={generatorInputs[field.key] || ''}
-                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
-                                >
-                                  <option value="">-- Choose Local Government Area (LGA) --</option>
-                                  {(() => {
-                                    const selectedState = generatorInputs['state'] || '';
-                                    const cleanKey = getCleanStateKey(selectedState);
-                                    const lgas = NIGERIAN_LGAS[cleanKey] || [];
-                                    return lgas.map((lg) => (
-                                      <option key={lg} value={lg}>
-                                        {lg}
-                                      </option>
-                                    ));
-                                  })()}
-                                </select>
-                              ) : field.type === 'textarea' ? (
-                                <textarea
-                                  required={field.required}
-                                  placeholder={field.placeholder}
-                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition min-h-[60px]"
-                                  value={generatorInputs[field.key] || ''}
-                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
-                                />
-                              ) : field.type === 'select' ? (
-                                <select
-                                  required={field.required}
-                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition"
-                                  value={generatorInputs[field.key] || ''}
-                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
-                                >
-                                  <option value="">-- {field.placeholder} --</option>
-                                  {(field.key === 'stylePreset' ? Object.keys(PRESETS_DB) : (field.options || [])).map((opt) => (
-                                    <option key={opt} value={opt}>
-                                      {opt}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type="text"
-                                  required={field.required}
-                                  placeholder={field.placeholder}
-                                  className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#006e4a] transition"
-                                  value={generatorInputs[field.key] || ''}
-                                  onChange={(e) => setGeneratorInputs({ ...generatorInputs, [field.key]: e.target.value })}
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Official Styling Options */}
-                        <div className="pt-4 border-t border-gray-100 space-y-3">
-                          <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Official Custom Settings</h4>
-                          
-                          <div className="space-y-2">
-                            <div>
-                              <label className="block text-[11px] font-bold text-neutral-600 mb-1">Custom Letterhead Name</label>
-                              <input 
-                                type="text" 
-                                placeholder="e.g., FEDERAL UNIVERSITY OF TECHNOLOGY"
-                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                                value={letterheadName}
-                                onChange={(e) => setLetterheadName(e.target.value)}
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-[11px] font-bold text-neutral-600 mb-1">Letterhead Organization Address</label>
-                              <input 
-                                type="text" 
-                                placeholder="e.g., P.M.B. 65, Bosso Road, Minna..."
-                                className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                                value={letterheadAddress}
-                                onChange={(e) => setLetterheadAddress(e.target.value)}
-                              />
-                            </div>
-
-                            {/* LOGO AND WATERMARK SETTINGS */}
-                            <div className="pt-2 border-t border-dashed border-gray-150 space-y-3">
-                              <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] block">Header Logo & Watermark Logo</span>
-                              
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fade-in">
-                                {/* Letterhead Logo Box */}
-                                <div className="space-y-1.5">
-                                  <label className="block text-[10px] font-bold text-neutral-500">Letterhead Logo</label>
-                                  {letterheadLogo ? (
-                                    <div className="relative border border-emerald-200 bg-emerald-50/30 p-2 rounded-xl flex items-center justify-between gap-2">
-                                      <img src={letterheadLogo} className="h-10 w-10 object-contain rounded bg-white border border-gray-200" alt="Letterhead Preview" />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-bold text-gray-700 truncate">Logo Ready</p>
-                                        <button 
-                                          type="button" 
-                                          onClick={() => setLetterheadLogo(null)}
-                                          className="text-[9px] text-red-600 font-extrabold hover:underline"
-                                        >
-                                          Remove Logo
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div 
-                                      className="border-2 border-dashed border-gray-200 hover:border-[#006e4a] rounded-xl p-3 text-center cursor-pointer bg-neutral-50/50 hover:bg-white transition relative"
-                                      onDragOver={(e) => e.preventDefault()}
-                                      onDrop={(e) => {
-                                        e.preventDefault();
-                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                                          handleLetterheadLogoUpload(e.dataTransfer.files[0]);
-                                        }
-                                      }}
-                                      onClick={() => document.getElementById('letterhead-logo-input')?.click()}
-                                    >
-                                      <input 
-                                        type="file" 
-                                        id="letterhead-logo-input" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={(e) => {
-                                          if (e.target.files && e.target.files[0]) {
-                                            handleLetterheadLogoUpload(e.target.files[0]);
-                                          }
-                                        }}
-                                      />
-                                      <p className="text-[10px] font-black text-[#006e4a]">⚡ Drop Logo</p>
-                                      <p className="text-[8px] text-gray-400 mt-0.5">or Select file</p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Watermark Logo Box */}
-                                <div className="space-y-1.5">
-                                  <label className="block text-[10px] font-bold text-neutral-500">Watermark Logo</label>
-                                  {watermarkLogo ? (
-                                    <div className="relative border border-emerald-200 bg-emerald-50/30 p-2 rounded-xl flex items-center justify-between gap-2">
-                                      <img src={watermarkLogo} className="h-10 w-10 object-contain rounded bg-white border border-gray-200" alt="Watermark Preview" />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-bold text-gray-700 truncate">Watermark Ready</p>
-                                        <button 
-                                          type="button" 
-                                          onClick={() => setWatermarkLogo(null)}
-                                          className="text-[9px] text-red-600 font-extrabold hover:underline"
-                                        >
-                                          Remove Watermark
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div 
-                                      className="border-2 border-dashed border-gray-200 hover:border-[#006e4a] rounded-xl p-3 text-center cursor-pointer bg-neutral-50/50 hover:bg-white transition relative"
-                                      onDragOver={(e) => e.preventDefault()}
-                                      onDrop={(e) => {
-                                        e.preventDefault();
-                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                                          handleWatermarkLogoUpload(e.dataTransfer.files[0]);
-                                        }
-                                      }}
-                                      onClick={() => document.getElementById('watermark-logo-input')?.click()}
-                                    >
-                                      <input 
-                                        type="file" 
-                                        id="watermark-logo-input" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={(e) => {
-                                          if (e.target.files && e.target.files[0]) {
-                                            handleWatermarkLogoUpload(e.target.files[0]);
-                                          }
-                                        }}
-                                      />
-                                      <p className="text-[10px] font-black text-[#006e4a]">🛡️ Drop Watermark</p>
-                                      <p className="text-[8px] text-gray-400 mt-0.5">or Select file</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Logo alignment settings details */}
-                              <div>
-                                <label className="block text-[10px] font-semibold text-neutral-500 mb-1">Logo Placement / Position Alignment</label>
-                                <div className="grid grid-cols-4 gap-1">
-                                  {(['left', 'center', 'right', 'align-text'] as const).map((pos) => (
-                                    <button
-                                      key={pos}
-                                      type="button"
-                                      onClick={() => setLetterheadLogoAlign(pos)}
-                                      className={`px-1 py-1 text-[9px] font-black uppercase rounded border transition ${
-                                        letterheadLogoAlign === pos 
-                                          ? 'bg-[#006e4a] text-white border-[#006e4a]' 
-                                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {pos === 'align-text' ? 'Inline Text' : pos}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Watermark logo alignment settings details */}
-                              <div>
-                                <label className="block text-[10px] font-semibold text-neutral-500 mb-1">Watermark Placement / Position Alignment</label>
-                                <div className="grid grid-cols-4 gap-1">
-                                  {(['left', 'center', 'right', 'diagonal'] as const).map((pos) => (
-                                    <button
-                                      key={pos}
-                                      type="button"
-                                      onClick={() => setWatermarkLogoAlign(pos)}
-                                      className={`px-1 py-1 text-[9px] font-black uppercase rounded border transition ${
-                                        watermarkLogoAlign === pos 
-                                          ? 'bg-[#006e4a] text-white border-[#006e4a]' 
-                                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {pos}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* DESIGN WORK DESIGN PATTERN SELECTOR WITH VISUAL PREVIEWS */}
-                              <div className="pt-3 border-t border-dashed border-gray-150 space-y-2">
-                                <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] block font-bold">
-                                  Select Design Work Pattern
-                                </span>
-                                <p className="text-[9px] text-gray-400">Choose a professional pre-designed administrative pattern structure.</p>
-                                
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {[
-                                    {
-                                      id: 'standard-formal',
-                                      name: 'Standard Formal',
-                                      desc: 'Elegant Serif / Royal double lines',
-                                      logoAlign: 'center',
-                                      lineStyle: 'double',
-                                      titleSize: 'md',
-                                      titleColor: '#111111',
-                                      lineColor: '#111111',
-                                      preview: (
-                                        <div className="space-y-1 py-1">
-                                          <div className="h-1.5 w-1/4 bg-neutral-300 rounded mx-auto" />
-                                          <div className="h-1 w-2/3 bg-[#111111] rounded mx-auto" />
-                                          <div className="h-[2px] bg-[#111111] w-full mt-1 border-b border-t border-[#111111]" />
-                                        </div>
-                                      )
-                                    },
-                                    {
-                                      id: 'modern-side',
-                                      name: 'Modern Sideband',
-                                      desc: 'Left accent colored border & clean sans',
-                                      logoAlign: 'left',
-                                      lineStyle: 'solid',
-                                      titleSize: 'lg',
-                                      titleColor: '#006e4a',
-                                      lineColor: '#006e4a',
-                                      preview: (
-                                        <div className="flex gap-2.5 items-center py-1">
-                                          <div className="w-[3px] bg-[#006e4a] h-6 rounded" />
-                                          <div className="space-y-0.5 flex-1">
-                                            <div className="h-1 bg-[#006e4a] w-3/4 rounded" />
-                                            <div className="h-1 bg-neutral-300 w-1/2 rounded" />
-                                          </div>
-                                        </div>
-                                      )
-                                    },
-                                    {
-                                      id: 'classic-academy',
-                                      name: 'Classic Academy',
-                                      desc: 'Old school serif, royal burgundy text',
-                                      logoAlign: 'center',
-                                      lineStyle: 'solid',
-                                      titleSize: 'md',
-                                      titleColor: '#800020',
-                                      lineColor: '#800020',
-                                      preview: (
-                                        <div className="space-y-1 py-1 text-center">
-                                          <div className="w-2 h-2 bg-[#800020] rotate-45 rounded-xs mx-auto" />
-                                          <div className="h-1 w-3/4 bg-[#800020] rounded mx-auto mt-0.5" />
-                                          <div className="h-[1px] bg-[#800020] w-full" />
-                                        </div>
-                                      )
-                                    },
-                                    {
-                                      id: 'executive-tech',
-                                      name: 'Executive Tech',
-                                      desc: 'Top thick accent block & clean mono',
-                                      logoAlign: 'align-text',
-                                      lineStyle: 'solid',
-                                      titleSize: 'sm',
-                                      titleColor: '#003366',
-                                      lineColor: '#003366',
-                                      preview: (
-                                        <div className="space-y-1 py-1">
-                                          <div className="h-1 bg-[#003366] w-full -mt-1 rounded-t-xs" />
-                                          <div className="flex gap-1 items-center">
-                                            <div className="h-1.5 w-1.5 bg-[#003366] rounded-full" />
-                                            <div className="h-1 w-1/2 bg-[#003366] rounded" />
-                                          </div>
-                                        </div>
-                                      )
-                                    },
-                                    {
-                                      id: 'minimalist',
-                                      name: 'Artistic Minimal',
-                                      desc: 'Clean compact space, thin dotted divider',
-                                      logoAlign: 'center',
-                                      lineStyle: 'dotted',
-                                      titleSize: 'sm',
-                                      titleColor: '#2d3748',
-                                      lineColor: '#718096',
-                                      preview: (
-                                        <div className="space-y-1 py-1 text-center font-sans">
-                                          <div className="h-[3px] w-1/3 bg-neutral-800 rounded mx-auto" />
-                                          <div className="border-t border-dotted border-gray-400 w-2/3 mx-auto mt-1" />
-                                        </div>
-                                      )
-                                    }
-                                  ].map((pat) => (
-                                    <button
-                                      key={pat.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setDesignPatternStyle(pat.id);
-                                        setLetterheadLogoAlign(pat.logoAlign);
-                                        setLetterheadLineStyle(pat.lineStyle);
-                                        setLetterheadTitleSize(pat.titleSize);
-                                        setLetterheadTitleColor(pat.titleColor);
-                                        setLetterheadLineColor(pat.lineColor);
-                                      }}
-                                      className={`p-1.5 rounded-xl text-left border flex flex-col justify-between h-[100px] transition group hover:shadow-xs ${
-                                        designPatternStyle === pat.id 
-                                          ? 'border-[#006e4a] bg-emerald-50/25 ring-2 ring-emerald-500/10' 
-                                          : 'border-gray-200 bg-white hover:border-gray-300'
-                                      }`}
-                                    >
-                                      <div>
-                                        <div className="font-extrabold text-[9px] text-neutral-800 leading-tight group-hover:text-neutral-900">{pat.name}</div>
-                                        <div className="text-[7.5px] text-gray-400 line-clamp-1 mt-0.5 leading-snug">{pat.desc}</div>
-                                      </div>
-                                      <div className="bg-neutral-50 rounded-lg p-1 border border-neutral-100 w-full mt-1.5 overflow-hidden">
-                                        {pat.preview}
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* STYLISTIC ACCESS FOR CUSTOM DESIGN */}
-                              <div className="pt-3 border-t border-dashed border-gray-150 space-y-3 bg-neutral-50/50 p-2.5 rounded-xl">
-                                <span className="text-[10px] uppercase font-black tracking-wider text-[#006e4a] flex items-center justify-between font-bold">
-                                  <span>⚙️ Access For Custom Design</span>
-                                  <span className="text-[7px] font-normal text-gray-500 capitalize leading-none">Custom Style Options</span>
-                                </span>
-                                
-                                <div className="space-y-2.5">
-                                  {/* Letterhead Title Color */}
-                                  <div>
-                                    <label className="block text-[9px] font-bold text-neutral-500 mb-0.5">Letterhead Title Color</label>
-                                    <div className="flex flex-wrap gap-1 items-center">
-                                      {[
-                                        { value: '#111111', label: 'Black' },
-                                        { value: '#003366', label: 'Navy' },
-                                        { value: '#006e4a', label: 'Emerald' },
-                                        { value: '#800020', label: 'Burgundy' },
-                                        { value: '#9a7b56', label: 'Sovereign' },
-                                        { value: '#553c9a', label: 'Royal' }
-                                      ].map((col) => (
-                                        <button
-                                          key={col.value}
-                                          type="button"
-                                          title={col.label}
-                                          onClick={() => setLetterheadTitleColor(col.value)}
-                                          className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                                            letterheadTitleColor === col.value 
-                                              ? 'border-neutral-950 ring-2 ring-emerald-300 scale-110' 
-                                              : 'border-transparent hover:scale-105'
-                                          }`}
-                                          style={{ backgroundColor: col.value }}
-                                        >
-                                          {letterheadTitleColor === col.value && (
-                                            <div className="w-1 h-1 bg-white rounded-full" />
-                                          )}
-                                        </button>
-                                      ))}
-                                      {/* Custom Input */}
-                                      <input 
-                                        type="text"
-                                        placeholder="#000"
-                                        className="text-[8px] font-mono bg-white border border-gray-200 rounded px-1 w-14 outline-none focus:border-[#006e4a]"
-                                        value={letterheadTitleColor}
-                                        onChange={(e) => setLetterheadTitleColor(e.target.value)}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {/* Divider Line Color */}
-                                  <div>
-                                    <label className="block text-[9px] font-bold text-neutral-500 mb-0.5">Divider Line Color</label>
-                                    <div className="flex flex-wrap gap-1 items-center">
-                                      {[
-                                        { value: '#111111', label: 'Black' },
-                                        { value: '#003366', label: 'Navy' },
-                                        { value: '#006e4a', label: 'Emerald' },
-                                        { value: '#800020', label: 'Burgundy' },
-                                        { value: '#cccccc', label: 'Light Gray' }
-                                      ].map((col) => (
-                                        <button
-                                          key={col.value}
-                                          type="button"
-                                          title={col.label}
-                                          onClick={() => setLetterheadLineColor(col.value)}
-                                          className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                                            letterheadLineColor === col.value 
-                                              ? 'border-neutral-950 ring-2 ring-emerald-300 scale-110' 
-                                              : 'border-transparent hover:scale-105'
-                                          }`}
-                                          style={{ backgroundColor: col.value }}
-                                        >
-                                          {letterheadLineColor === col.value && (
-                                            <div className="w-1 h-1 bg-white rounded-full" />
-                                          )}
-                                        </button>
-                                      ))}
-                                      {/* Match Title Button */}
-                                      <button
-                                        type="button"
-                                        onClick={() => setLetterheadLineColor(letterheadTitleColor)}
-                                        className="text-[7.5px] bg-[#006e4a]/10 text-[#006e4a] hover:bg-[#006e4a]/25 px-1 rounded font-black uppercase tracking-normal"
-                                      >
-                                        Match Title
-                                      </button>
-                                      {/* Custom Line Input */}
-                                      <input 
-                                        type="text"
-                                        placeholder="#000"
-                                        className="text-[8px] font-mono bg-white border border-gray-200 rounded px-1 w-14 outline-none focus:border-[#006e4a]"
-                                        value={letterheadLineColor}
-                                        onChange={(e) => setLetterheadLineColor(e.target.value)}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                                    {/* Line Style Selection */}
-                                    <div>
-                                      <label className="block text-[9px] font-semibold text-neutral-500 mb-0.5">Divider Style</label>
-                                      <select 
-                                        className="w-full bg-white border border-gray-150 rounded px-1 py-0.5 text-[10px] outline-none focus:border-[#006e4a]"
-                                        value={letterheadLineStyle}
-                                        onChange={(e) => setLetterheadLineStyle(e.target.value as any)}
-                                      >
-                                        <option value="double">Double Rule</option>
-                                        <option value="solid">Solid Thick</option>
-                                        <option value="dotted">Dotted</option>
-                                        <option value="dashed">Dashed</option>
-                                        <option value="none">No Line</option>
-                                      </select>
-                                    </div>
-
-                                    {/* Font Size Selection */}
-                                    <div>
-                                      <label className="block text-[9px] font-semibold text-neutral-500 mb-0.5">Title Size</label>
-                                      <select 
-                                        className="w-full bg-white border border-gray-150 rounded px-1 py-0.5 text-[10px] outline-none focus:border-[#006e4a]"
-                                        value={letterheadTitleSize}
-                                        onChange={(e) => setLetterheadTitleSize(e.target.value as any)}
-                                      >
-                                        <option value="sm">Small (11px)</option>
-                                        <option value="md">Normal (14px)</option>
-                                        <option value="lg">Large (16px)</option>
-                                        <option value="xl">Extra (18px)</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 pt-2">
-                              <div>
-                                <label className="block text-[11px] font-bold text-neutral-600 mb-1">Official Signer Name</label>
-                                <input 
-                                  type="text" 
-                                  placeholder="e.g., Prof. Sarah Alabi"
-                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                                  value={signerName}
-                                  onChange={(e) => setSignerName(e.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-neutral-600 mb-1">Status watermark</label>
-                                <select 
-                                  className="w-full bg-neutral-50/50 border border-gray-200 rounded-lg p-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                                  value={addWatermark ? 'yes' : 'no'}
-                                  onChange={(e) => setAddWatermark(e.target.value === 'yes')}
-                                >
-                                  <option value="yes">Add Draft watermarks</option>
-                                  <option value="no">Do not add watermarks</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 pt-1">
-                              <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                                <input 
-                                  type="checkbox" 
-                                  checked={addQrCode}
-                                  onChange={(e) => setAddQrCode(e.target.checked)}
-                                  className="rounded text-[#006e4a] focus:ring-[#006e4a] h-3.5 w-3.5"
-                                />
-                                Add QR Verify Code
-                              </label>
-
-                              <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                                <input 
-                                  type="checkbox" 
-                                  checked={addSignatureLine}
-                                  onChange={(e) => setAddSignatureLine(e.target.checked)}
-                                  className="rounded text-[#006e4a] focus:ring-[#006e4a] h-3.5 w-3.5"
-                                />
-                                Add Signature Placeholder
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Submit draft generator */}
-                        <button 
-                          type="submit" 
-                          disabled={generationLoading}
-                          className="w-full mt-4 bg-[#006e4a] hover:bg-[#005c3e] text-white py-2 px-4 rounded-xl text-xs font-bold leading-none shadow-sm flex items-center justify-center gap-1"
+                      ) : (
+                        <div 
+                          id={`classic-document-body-${currentDocument.id}`}
+                          className="bg-white border-2 border-black text-left rounded-xl font-serif p-8 max-w-[595px] w-full min-h-[660px] relative overflow-hidden flex flex-col justify-between"
                         >
-                          {generationLoading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Calling DocMint AI Engine...
-                            </>
-                          ) : (
-                            <>
-                              ✨ Write Document Template Preview
-                            </>
+                          {/* Top Draft bar */}
+                          {currentDocument.addWatermark && !currentDocument.paid && (
+                            <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center rotate-[-25deg] select-none text-red-500/10 font-sans font-black text-3xl tracking-widest whitespace-nowrap uppercase">
+                              DocMint Draft copy - No Authority
+                            </div>
                           )}
-                        </button>
-                      </form>
-                    </div>
 
-                    {/* Right Column: Live Interactive Previewer */}
-                    <div className="lg:col-span-7 bg-white border border-gray-150 rounded-xl shadow-xs overflow-hidden">
-                      <div className="px-5 py-4 bg-neutral-50 border-b border-gray-150 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-[#006e4a] animate-ping"></span>
-                          <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Live Document Preview Layer</span>
-                        </div>
-                        {currentDoc && !currentDoc.paid && (
-                          <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-                            Checkout Needed
-                          </span>
-                        )}
-                        {currentDoc && currentDoc.paid && (
-                          <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-                            Official Verified (Paid)
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Actual Document canvas */}
-                      <div className="p-6 sm:p-8 bg-neutral-100 min-h-[460px] flex items-center justify-center relative">
-                        {currentDoc ? (
-                          currentDoc.categoryId === 'lga-origin' ? (
-                            <CertificatePreview doc={currentDoc} />
-                          ) : (
-                            <div 
-                              className="w-full bg-white border border-gray-200/80 shadow-lg rounded-md p-6 sm:p-10 relative overflow-hidden text-[#1a1a1a] select-none letter-preview font-serif max-w-[580px] z-0"
-                              style={{
-                                borderLeft: (currentDoc.designPatternStyle || designPatternStyle) === 'modern-side' ? `6px solid ${currentDoc.letterheadLineColor || letterheadLineColor || '#111111'}` : undefined,
-                                borderTop: (currentDoc.designPatternStyle || designPatternStyle) === 'executive-tech' ? `8px solid ${currentDoc.letterheadLineColor || letterheadLineColor || '#111111'}` : undefined,
-                                paddingLeft: (currentDoc.designPatternStyle || designPatternStyle) === 'modern-side' ? '28px' : undefined,
-                                borderLeftStyle: 'solid',
-                                borderTopStyle: 'solid'
-                              }}
-                            >
-                              
-                              {/* Watermark layer */}
-                              {currentDoc.addWatermark && !currentDoc.paid && (
-                                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg] text-red-500/10 font-bold text-4xl text-center select-none pointer-events-none uppercase tracking-widest z-10 whitespace-nowrap">
-                                  UNPAID PREVIEW ONLY
-                                </div>
+                          {/* Letterhead block */}
+                          <div className={`flex flex-col mb-4 pb-2 border-b-${currentDocument.letterheadLineStyle === 'none' ? '0' : '2'}`} style={{ borderColor: currentDocument.letterheadLineColor }}>
+                            
+                            {/* Inner Logo + Text row */}
+                            <div className={`flex items-center gap-4 ${
+                              currentDocument.letterheadLogoAlign === 'center' 
+                                ? 'flex-col text-center' 
+                                : currentDocument.letterheadLogoAlign === 'right' 
+                                  ? 'flex-row-reverse text-right' 
+                                  : 'flex-row text-left'
+                            }`}>
+                              {currentDocument.letterheadLogo && (
+                                <img 
+                                  src={currentDocument.letterheadLogo} 
+                                  alt="logo-crest" 
+                                  className="w-13 h-13 object-contain select-none shadow-xs border bg-neutral-50 p-1" 
+                                />
                               )}
-
-                              {/* Watermark logo image layer */}
-                              {(currentDoc.watermarkLogo || watermarkLogo) && (() => {
-                                const align = currentDoc.watermarkLogoAlign || watermarkLogoAlign || 'center';
-                                let containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none";
-                                let imgClass = "w-2/3 h-2/3 object-contain";
-                                
-                                if (align === 'left') {
-                                  containerClass = "absolute left-6 top-[30%] w-32 h-32 flex items-center justify-center opacity-[0.05] pointer-events-none z-0 select-none";
-                                  imgClass = "w-full h-full object-contain";
-                                } else if (align === 'right') {
-                                  containerClass = "absolute right-6 top-[30%] w-32 h-32 flex items-center justify-center opacity-[0.05] pointer-events-none z-0 select-none";
-                                  imgClass = "w-full h-full object-contain";
-                                } else if (align === 'diagonal') {
-                                  containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none rotate-[-25deg]";
-                                  imgClass = "w-2/3 h-2/3 object-contain";
-                                } else { // center
-                                  containerClass = "absolute inset-x-4 inset-y-12 flex items-center justify-center opacity-[0.06] pointer-events-none z-0 select-none";
-                                  imgClass = "w-2/3 h-2/3 object-contain";
-                                }
-                                
-                                return (
-                                  <div className={containerClass} style={{ mixBlendMode: 'multiply' }}>
-                                    <img 
-                                      src={currentDoc.watermarkLogo || watermarkLogo} 
-                                      className={imgClass} 
-                                      alt="Watermark background" 
-                                    />
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Letterhead */}
-                              {(letterheadName || letterheadAddress || currentDoc.letterheadLogo || letterheadLogo) && (() => {
-                                const currentPattern = currentDoc.designPatternStyle || designPatternStyle || 'standard-formal';
-                                const currentTitleColor = currentDoc.letterheadTitleColor || letterheadTitleColor || '#111111';
-                                const currentLineColor = currentDoc.letterheadLineColor || letterheadLineColor || '#111111';
-                                const currentLineStyle = currentDoc.letterheadLineStyle || letterheadLineStyle || 'double';
-                                const currentTitleSize = currentDoc.letterheadTitleSize || letterheadTitleSize || 'md';
-                                const currentLogoAlign = currentDoc.letterheadLogoAlign || letterheadLogoAlign || 'center';
-
-                                let fontSizeClass = "text-sm";
-                                if (currentTitleSize === 'sm') fontSizeClass = "text-[11px]";
-                                else if (currentTitleSize === 'md') fontSizeClass = "text-sm";
-                                else if (currentTitleSize === 'lg') fontSizeClass = "text-base";
-                                else if (currentTitleSize === 'xl') fontSizeClass = "text-lg";
-
-                                let lineStyleCSS: React.CSSProperties = {};
-                                if (currentLineStyle === 'none') {
-                                  lineStyleCSS = { borderBottom: 'none' };
-                                } else if (currentLineStyle === 'dotted') {
-                                  lineStyleCSS = { borderBottom: `2px dotted ${currentLineColor}` };
-                                } else if (currentLineStyle === 'dashed') {
-                                  lineStyleCSS = { borderBottom: `2px dashed ${currentLineColor}` };
-                                } else if (currentLineStyle === 'solid') {
-                                  lineStyleCSS = { borderBottom: `2.5px solid ${currentLineColor}` };
-                                } else { // double
-                                  lineStyleCSS = { borderBottom: `4px double ${currentLineColor}` };
-                                }
-
-                                const fontFamClass = currentPattern === 'classic-academy' ? 'font-serif tracking-wide' : 'font-serif';
-
-                                return (
-                                  <div style={{ ...lineStyleCSS, paddingBottom: '10px', marginBottom: '24px', position: 'relative', zIndex: 10 }}>
-                                    {/* Align Left layout */}
-                                    {currentLogoAlign === 'left' && (
-                                      <div className="flex items-center gap-4 text-left">
-                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
-                                        )}
-                                        <div className="flex-1">
-                                          <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
-                                          <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Align Right layout */}
-                                    {currentLogoAlign === 'right' && (
-                                      <div className="flex items-center gap-4 text-left justify-between">
-                                        <div className="flex-1">
-                                          <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
-                                          <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
-                                        </div>
-                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* Align Center layout */}
-                                    {currentLogoAlign === 'center' && (
-                                      <div className="text-center">
-                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                          <div className="flex justify-center mb-1.5">
-                                            <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-12 w-12 object-contain rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
-                                          </div>
-                                        )}
-                                        <h4 className={`font-bold uppercase tracking-tight leading-tight ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
-                                        <p className="text-[9px] text-gray-500 font-sans tracking-wide mt-1 leading-normal">{letterheadAddress}</p>
-                                      </div>
-                                    )}
-
-                                    {/* Align with Text (inline) layout */}
-                                    {currentLogoAlign === 'align-text' && (
-                                      <div className="flex items-center justify-center gap-3">
-                                        {(currentDoc.letterheadLogo || letterheadLogo) && (
-                                          <img src={currentDoc.letterheadLogo || letterheadLogo} className="h-10 w-10 object-contain shrink-0 rounded bg-white shadow-xs border border-gray-100" alt="Logo" />
-                                        )}
-                                        <div className="text-left">
-                                          <h4 className={`font-bold uppercase tracking-tight leading-none ${fontSizeClass} ${fontFamClass}`} style={{ color: currentTitleColor }}>{letterheadName}</h4>
-                                          <p className="text-[8px] text-gray-500 font-sans tracking-wide mt-0.5 leading-normal">{letterheadAddress}</p>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Letter Content preview */}
-                              <div className="text-xs leading-relaxed text-justify whitespace-pre-line text-neutral-800 tracking-wide font-serif">
-                                {currentDoc.content ? currentDoc.content.replace(/\*/g, '') : ''}
+                              <div className="flex-grow min-w-0">
+                                <h1 className="text-sm font-black uppercase tracking-tight font-sans" style={{ color: currentDocument.letterheadTitleColor }}>
+                                  {currentDocument.letterheadName}
+                                </h1>
+                                <p className="text-[9px] text-gray-400 font-sans leading-relaxed tracking-wider mt-0.5 font-semibold">
+                                  {currentDocument.letterheadAddress}
+                                </p>
                               </div>
+                            </div>
 
-                              {/* Signature Line */}
-                              {currentDoc.addSignatureLine && (
-                                <div className="mt-8 text-left float-right w-44 pt-2 border-t border-gray-400 font-sans text-[10px]">
-                                  <span className="font-bold text-gray-900 block">{currentDoc.signerName}</span>
-                                  <span className="text-gray-500 block">{signerTitle}</span>
+                            {/* Separator rule depending on style */}
+                            {currentDocument.letterheadLineStyle !== 'none' && (
+                              <div className="w-full mt-2.5 h-[3px]" style={{ 
+                                borderBottom: `${currentDocument.letterheadLineStyle === 'double' ? '3px double' : '1px ' + currentDocument.letterheadLineStyle}`,
+                                borderColor: currentDocument.letterheadLineColor 
+                              }}></div>
+                            )}
+                          </div>
+
+                          {/* Heading ref & dates */}
+                          <div className="flex justify-between items-start text-xs font-sans text-neutral-600 mb-6">
+                            <span>REF Code: <b>DM-{currentDocument.id.toUpperCase().slice(0, 8)}</b></span>
+                            <span>Date: <b>{new Date(currentDocument.createdAt).toLocaleDateString()}</b></span>
+                          </div>
+
+                          {/* Body text content */}
+                          <div className="flex-grow text-neutral-950 text-sm leading-relaxed mb-6 font-serif whitespace-pre-wrap px-1 prose max-w-none">
+                            {currentDocument.paid ? (
+                              currentDocument.content
+                            ) : (
+                              <div className="relative">
+                                {/* Only first paragraph readable, remaining blurred as draft standard */}
+                                <p className="mb-4">
+                                  {currentDocument.content.split('\n\n')[0] || 'Draft Preview Content is locked.'}
+                                </p>
+                                <div className="blur-[5px] select-none pointer-events-none leading-loose">
+                                  {currentDocument.content.split('\n\n').slice(1).join('\n\n') || 'Please pay the processing fee to instantly compile the official administrative copy of this generated letterhead draft.'}
                                 </div>
-                              )}
+                                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent"></div>
+                              </div>
+                            )}
+                          </div>
 
-                              <div className="clear-both"></div>
-
-                              {/* QR verify code widget */}
-                              {currentDoc.addQrCode && (
-                                <div className="mt-8 pt-4 border-t border-dotted border-gray-200 flex items-center gap-3">
-                                  <div className="bg-neutral-900 text-white p-1 text-[9px] font-bold uppercase shrink-0">QR CODE</div>
-                                  <div className="font-sans text-[9px] text-gray-400 leading-tight">
-                                    <b>DocMint cryptographic reference verification ID:</b><br/>
-                                    <span>{currentDoc.id} | Status: {currentDoc.paid ? 'Offically Unlocked (Paid)' : 'Preview State'}</span>
-                                  </div>
+                          {/* Bottom controls and signature */}
+                          <div className="border-t border-dashed border-neutral-200 pt-3 flex items-end justify-between font-sans">
+                            
+                            {/* Simulated stamp sticker overlay */}
+                            <div className="flex items-center space-x-2">
+                              {currentDocument.addQrCode && (
+                                <div className="border-2 border-black p-1 bg-white flex flex-col items-center justify-center tracking-tight leading-none text-black">
+                                  <Sliders className="w-9 h-9 text-black" />
+                                  <span className="text-[6px] font-black mt-0.5 uppercase tracking-wide">VERIFIED</span>
                                 </div>
                               )}
                             </div>
-                          )
-                        ) : (
-                          <div className="text-center p-8 max-w-sm">
-                            <Layers className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                            <h4 className="font-extrabold text-sm text-neutral-700">No Draft Generated Yet</h4>
-                            <p className="text-xs text-gray-400 mt-1">Fill the parameters form on the left, then click "Write Document Template" to render a flawless compliant copy instantly.</p>
-                          </div>
-                        )}
-                      </div>
 
-                      {/* Print and Checkout controls */}
-                      {currentDoc && (
-                        <div className="bg-neutral-50 px-5 py-4 border-t border-gray-150 flex flex-col sm:flex-row items-center justify-between gap-4">
-                          <div>
-                            {!currentDoc.paid ? (
-                              <div className="space-y-1">
-                                <p className="text-xs text-amber-800 font-bold">₦{selectedCategory.priceNGN.toLocaleString()} checkout unlocks official output</p>
-                                <p className="text-[10px] text-gray-500">Unlocks watermark reduction and high-fidelity PDF save.</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <p className="text-xs text-green-800 font-bold">✓ Transaction Verified Unlocked</p>
-                                <p className="text-[10px] text-gray-500">You have permanent access to print this document.</p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex gap-2 w-full sm:w-auto">
-                            {!currentDoc.paid ? (
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                                <div className="flex items-center gap-1.5">
-                                  <select 
-                                    className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold text-gray-700"
-                                    value={selectedGateway}
-                                    onChange={(e: any) => setSelectedGateway(e.target.value)}
-                                  >
-                                    <option value="paystack">💳 Paystack Gateway</option>
-                                    <option value="flutterwave">🦋 Flutterwave</option>
-                                    <option value="monnify">⚡ Monnify Gateway</option>
-                                  </select>
-                                  
-                                  <button 
-                                    onClick={triggerCheckout}
-                                    className="bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-black py-2 px-3 rounded-lg shadow-xs transition whitespace-nowrap"
-                                  >
-                                    Online Checkout
-                                  </button>
+                            {/* Verification Tag */}
+                            {currentDocument.addSignatureLine && currentDocument.signerName && (
+                              <div className="text-right">
+                                <div className="w-36 border-t border-neutral-400 pt-1 text-center font-sans tracking-tight">
+                                  <span className="block text-xs font-black text-black">{currentDocument.signerName}</span>
+                                  <span className="text-[9px] text-neutral-500 block leading-tight font-medium">{currentDocument.signerTitle || 'Direct Signing Officer'}</span>
+                                  <span className="text-[8px] text-neutral-400 block font-mono">Date: {new Date(currentDocument.createdAt).toLocaleDateString()}</span>
                                 </div>
-                                
-                                <span className="text-xs text-gray-400 text-center hidden sm:inline">|</span>
-                                
-                                <button 
-                                  onClick={handlePayWithWallet}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-xs transition flex items-center justify-center gap-1"
-                                >
-                                  <span>⚡ Pay ₦{(selectedCategory?.priceNGN ?? 2500).toLocaleString()} via Wallet</span>
-                                  <span className="text-[10px] opacity-85">(Bal: ₦{(user?.walletBalance ?? 2500).toLocaleString()})</span>
-                                </button>
                               </div>
-                            ) : (
-                              <button 
-                                onClick={() => handlePrintDocument(currentDoc)}
-                                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-xs font-black py-2 px-4 rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition"
-                              >
-                                <Printer className="h-4.5 w-4.5" />
-                                Save / Print PDF Letter
-                              </button>
                             )}
+
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT: VAULT (MY DOCUMENTS) */}
-            {activeTab === 'my-docs' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-black text-neutral-900">Your Document Vault</h2>
-                  <p className="text-sm text-gray-500">Retrieve, checkout, or print your previously generated administrative documentation.</p>
-                </div>
-
-                {dataLoading ? (
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-150">
-                    <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
-                    <p className="text-sm text-neutral-500">Loading documents from ledger...</p>
-                  </div>
-                ) : documents.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-150 max-w-md mx-auto">
-                    <Inbox className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <h3 className="font-bold text-neutral-800 text-sm">Vault is Empty</h3>
-                    <p className="text-xs text-gray-400 mt-1 mb-4 leading-relaxed">
-                      You haven’t initialized any drafts yet. Select a template and input variables to populate your profile.
-                    </p>
-                    <button 
-                      onClick={() => setActiveTab('generate')}
-                      className="bg-[#006e4a] hover:bg-[#005c3e] text-white py-1.5 px-4 rounded-lg font-bold text-xs transition"
-                    >
-                      Browse Document Types First
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-gray-150 rounded-xl overflow-hidden shadow-2xs">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-gray-150 text-[10px] font-extrabold uppercase text-gray-500 tracking-wider">
-                          <th className="p-4">Document Category</th>
-                          <th className="p-4">Status / Watermark</th>
-                          <th className="p-4">Identifier Reference</th>
-                          <th className="p-4">Created Date</th>
-                          <th className="p-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-xs">
-                        {documents.map((doc) => (
-                          <tr key={doc.id} className="hover:bg-neutral-50">
-                            <td className="p-4">
-                              <span className="font-extrabold text-neutral-900 block">{doc.categoryName}</span>
-                              <span className="text-[10px] text-gray-400 block mt-0.5 uppercase tracking-wide">
-                                Key Fields: {Object.keys(doc.inputs).slice(0, 3).join(', ')}...
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              {doc.paid ? (
-                                <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-150 px-2.5 py-0.5 rounded-full font-extrabold text-[10px] uppercase">
-                                  <Check className="h-3 w-3" /> Verified Official
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-150 px-2.5 py-0.5 rounded-full font-extrabold text-[10px] uppercase">
-                                  <Lock className="h-3 w-3 text-amber-600" /> Pending Payment
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-4 font-mono text-gray-500">{doc.id}</td>
-                            <td className="p-4 text-gray-500">
-                              {new Date(doc.createdAt).toLocaleDateString()} at {new Date(doc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </td>
-                            <td className="p-4 text-right space-x-2">
-                              <button 
-                                onClick={() => {
-                                  setCurrentDoc(doc);
-                                  // set correct category index active
-                                  const match = categories.find(c => c.id === doc.categoryId);
-                                  if (match) {
-                                    setSelectedCategory(match);
-                                    setGeneratorInputs(doc.inputs);
-                                    setLetterheadName(doc.letterheadName || '');
-                                    setLetterheadAddress(doc.letterheadAddress || '');
-                                    setLetterheadLogo(doc.letterheadLogo || null);
-                                    setWatermarkLogo(doc.watermarkLogo || null);
-                                    setLetterheadLogoAlign(doc.letterheadLogoAlign || 'center');
-                                    setWatermarkLogoAlign(doc.watermarkLogoAlign || 'center');
-                                    setLetterheadTitleColor(doc.letterheadTitleColor || '#111111');
-                                    setLetterheadLineColor(doc.letterheadLineColor || '#111111');
-                                    setLetterheadLineStyle(doc.letterheadLineStyle || 'double');
-                                    setDesignPatternStyle(doc.designPatternStyle || 'standard-formal');
-                                    setLetterheadTitleSize(doc.letterheadTitleSize || 'md');
-                                    setAddWatermark(doc.addWatermark);
-                                    setAddQrCode(doc.addQrCode);
-                                    setAddSignatureLine(doc.addSignatureLine);
-                                    setSignerName(doc.signerName || '');
-                                  }
-                                  setActiveTab('generate');
-                                }}
-                                className="bg-indigo-55 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 py-1.5 px-3 rounded-lg font-bold text-[11px] transition"
-                              >
-                                View Live Preview
-                              </button>
-                              
-                              {doc.paid ? (
-                                <button 
-                                  onClick={() => handlePrintDocument(doc)}
-                                  className="bg-green-600 hover:bg-green-700 text-white py-1.5 px-3 rounded-lg font-bold text-[11px] transition"
-                                >
-                                  Print / PDF
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={() => {
-                                    setCurrentDoc(doc);
-                                    setSelectedGateway('paystack');
-                                    // select template to pre-fill
-                                    const match = categories.find(c => c.id === doc.categoryId);
-                                    if (match) setSelectedCategory(match);
-                                    // open checkout initialize
-                                    triggerCheckout();
-                                  }}
-                                  className="bg-neutral-900 hover:bg-black text-white py-1.5 px-3 rounded-lg font-black text-[11px] transition"
-                                >
-                                  Unlock
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT: PAYMENTS */}
-            {activeTab === 'payments' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-black text-neutral-900">Billing History Ledger</h2>
-                  <p className="text-sm text-gray-500">Track all gateway payments securely synchronized from Paystack, Flutterwave, and Monnify.</p>
-                </div>
-
-                {dataLoading ? (
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-150">
-                    <Loader2 className="h-8 w-8 text-[#006e4a] animate-spin mx-auto mb-3" />
-                    <p className="text-sm text-neutral-500">Aggregating checkout metrics...</p>
-                  </div>
-                ) : payments.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-150 max-w-sm mx-auto">
-                    <DollarSign className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                    <h3 className="font-bold text-neutral-800 text-sm">No Payments Executed</h3>
-                    <p className="text-xs text-gray-400 mt-1">When you trigger Paystack/Flutterwave/Monnify gateways, receipts log instantly here.</p>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-gray-150 rounded-xl overflow-hidden shadow-2xs">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-gray-150 text-[10px] font-extrabold uppercase text-gray-500 tracking-wider">
-                          <th className="p-4">Paid For</th>
-                          <th className="p-4">Reference Key</th>
-                          <th className="p-4">Amount (NGN)</th>
-                          <th className="p-4">Gateway</th>
-                          <th className="p-4">Status</th>
-                          <th className="p-4">Verification Date</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-xs">
-                        {payments.map((p) => (
-                          <tr key={p.id}>
-                            <td className="p-4">
-                              <span className="font-extrabold text-neutral-900">{p.categoryName}</span>
-                            </td>
-                            <td className="p-4 font-mono text-gray-500">{p.reference}</td>
-                            <td className="p-4 font-extrabold text-gray-900">₦{p.amount.toLocaleString()}</td>
-                            <td className="p-4 capitalize text-gray-600">{p.gateway}</td>
-                            <td className="p-4">
-                              {p.status === 'success' ? (
-                                <span className="bg-green-50 border border-green-150 text-green-700 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                                  Success
-                                </span>
-                              ) : (
-                                <span className="bg-red-50 border border-red-150 text-red-700 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                                  Failed
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-4 text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT: PROFILE */}
-            {activeTab === 'profile' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                <div className="lg:col-span-5 bg-white border border-gray-150 rounded-xl shadow-xs p-6 space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 bg-gradient-to-tr from-[#006e4a] to-emerald-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-md">
-                      {user.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="font-black text-neutral-900 text-lg leading-none">{user.name}</h3>
-                      <p className="text-xs text-gray-400 mt-1 capitalize">Role tier: <span className="font-bold text-gray-700">{user.role}</span></p>
-                    </div>
+                      )
+                    ) : (
+                      <div className="text-center p-6 text-neutral-400 max-w-sm">
+                        <Sliders className="w-14 h-14 mx-auto text-[#00c060] stroke-1 mb-3 animate-pulse" />
+                        <h4 className="text-sm font-black text-black uppercase">No generated document preview</h4>
+                        <p className="text-xs text-neutral-400 mt-1 font-medium">Configure your variable parameter coordinates on the left and click Generate AI Preview to assemble the custom draft letterhead here.</p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-3 pt-4 border-t border-gray-100 text-xs text-gray-600">
-                    <div className="flex justify-between py-1">
-                      <span className="font-semibold">Registered Email:</span>
-                      <span className="font-bold text-neutral-900">{user.email}</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="font-semibold">Phone Number:</span>
-                      <span className="font-bold text-neutral-900 font-mono">{user.phone}</span>
-                    </div>
-                    {user.userType && (
-                      <div className="flex justify-between py-1">
-                        <span className="font-semibold">Affiliation Type:</span>
-                        <span className="font-bold text-neutral-950 capitalize">
-                          {user.userType === 'student' && '🎓 Student / Scholar'}
-                          {user.userType === 'faculty' && '🏫 Faculty / Staff'}
-                          {user.userType === 'organization' && '🏢 Agency / Org'}
-                          {user.userType === 'general' && '💼 Professional'}
+                  {/* Payment controls for Draft preview */}
+                  {currentDocument && (
+                    <div className="border-t-2 border-black pt-4 bg-black text-white -mx-5 -mb-5 p-5 rounded-b-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-center sm:text-left">
+                        <span className="block text-[11px] text-[#00c060] uppercase tracking-widest font-black leading-none">Draft cost to unlock</span>
+                        <span className="text-xl font-black text-white mt-1.5 block font-display">
+                          ₦{selectedCategory?.priceNGN.toLocaleString()} NGN
                         </span>
                       </div>
-                    )}
-                    {user.institution && (
-                      <div className="flex justify-between py-1">
-                        <span className="font-semibold">Institution Name:</span>
-                        <span className="font-bold text-emerald-900">{user.institution}</span>
-                      </div>
-                    )}
-                    {user.department && (
-                      <div className="flex justify-between py-1">
-                        <span className="font-semibold">Department:</span>
-                        <span className="font-bold text-neutral-900">{user.department}</span>
-                      </div>
-                    )}
-                    {user.matricNo && (
-                      <div className="flex justify-between py-1">
-                        <span className="font-semibold">ID / Matric No.:</span>
-                        <span className="font-bold text-[#006e4a] font-mono">{user.matricNo}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-1">
-                      <span className="font-semibold">Official Status:</span>
-                      <span>
-                        {user.verified ? (
-                          <span className="bg-emerald-100 text-emerald-900 text-[10px] font-bold px-2 py-0.5 rounded">Verified Safe</span>
-                        ) : (
-                          <span className="bg-rose-100 text-rose-900 text-[10px] font-bold px-2 py-0.5 rounded">Unverified Sandbox</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="font-semibold">Joined Platform:</span>
-                      <span className="font-mono">{new Date(user.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
 
+                      {currentDocument.paid ? (
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button
+                            onClick={handleOpenPrintLayout}
+                            className="flex-grow sm:flex-grow-0 bg-[#00c060] text-black border-2 border-black hover:bg-[#00a352] hover:text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase flex items-center justify-center space-x-1.5 tracking-wider cursor-pointer"
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span>Print Doc / Save PDF</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setPaymentModalOpen(true)}
+                          className="w-full sm:w-auto bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black px-6 py-3 rounded-xl font-black text-xs uppercase flex items-center justify-center space-x-2 tracking-wider cursor-pointer"
+                        >
+                          <Unlock className="w-4 h-4 text-white" />
+                          <span>Unlock Official Document</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+        {/* 📋 VIEW 2: MY ARCHIVES */}
+        {activeTab === 'drafts' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black text-black leading-tight uppercase font-display">Your Saved Document Archives</h1>
+                <p className="text-xs text-neutral-400 mt-0.5 font-medium">Access historic certificates, complete unfinished checkouts, and reprint unlocked letterheads cleanly.</p>
+              </div>
+
+              {/* Instant wallet checkup block */}
+              {currentUser && (
+                <div className="bg-white border-2 border-black rounded-2xl p-3.5 flex items-center space-x-3 shrink-0 self-start justify-between">
+                  <Coins className="w-5 h-5 text-[#00c060] shrink-0" />
+                  <div className="text-left font-sans">
+                    <span className="block text-[9px] text-neutral-400 font-black uppercase leading-none">Simulated Balance</span>
+                    <span className="block text-sm font-black text-black leading-tight mt-1 font-display">₦{(currentUser.walletBalance ?? 0).toLocaleString()}</span>
+                  </div>
                   <button 
-                    onClick={logout}
-                    className="w-full bg-red-50 hover:bg-red-100 text-red-600 py-2.5 rounded-lg text-xs font-bold leading-none transition"
+                    onClick={() => {
+                      const ans = prompt('Enter top-up amount in NGN (e.g., 2000, 5000):', '5000');
+                      if (ans) {
+                        setTopupAmount(ans);
+                        setTimeout(() => handleWalletTopup(), 200);
+                      }
+                    }}
+                    className="bg-[#00c060] hover:bg-[#00a352] text-white font-black text-[10px] uppercase border border-black px-3 py-1.5 rounded-lg cursor-pointer"
                   >
-                    Disconnect Secure Workspace Session
+                    Quick Add Credit
                   </button>
                 </div>
+              )}
+            </div>
 
-                <div className="lg:col-span-7 bg-white border border-gray-150 rounded-xl shadow-xs p-6 space-y-4">
-                  <h3 className="font-extrabold text-neutral-900">DocMint Compliance Framework & Credentials Audit</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    This compliance suite keeps a cryptographic hash of all generated documents in order to protect against fraudulent claims of academic degrees. When institutions query validation codes via the integrated QR code verification page, our server evaluates the original generated text payload to ensure zero modifications have been retrofitted by job-seekers.
-                  </p>
-                  
-                  <div className="bg-neutral-50 p-4 rounded-xl border border-gray-200">
-                    <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-widest mb-2 flex items-center gap-1">
-                      <Shield className="h-4 w-4 text-emerald-600" /> Authorized Signatories Guarantee
-                    </h4>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
-                      DocMint only formats legitimate communications that conform to educational and industrial layout metrics. We do not generate signatures or authorized stamps artificially for foreign organizations.
-                    </p>
+            {myDocuments.length === 0 ? (
+              <div className="bg-white p-12 text-center rounded-2xl border-2 border-black">
+                <FileText className="w-16 h-16 text-neutral-300 mx-auto stroke-1 mb-3 animate-pulse" />
+                <h3 className="text-md font-black text-black uppercase">No document history found</h3>
+                <p className="text-xs text-neutral-400 max-w-sm mx-auto mt-1 font-medium">You have not assembled any dynamic previews in this session yet. Navigate to the Drafting Console to configure and view template letters.</p>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className="mt-5 bg-[#00c060] hover:bg-[#00c060] text-white border-2 border-black font-black text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl cursor-pointer"
+                >
+                  Generate First Draft
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {myDocuments.map((doc) => (
+                  <div 
+                    key={doc.id}
+                    className="bg-white border-2 border-black rounded-2xl p-4 flex flex-col justify-between transition-all"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="bg-black text-[#00c060] text-[9px] font-black px-2 py-0.5 rounded uppercase border border-black">
+                            {doc.categoryId}
+                          </span>
+                          <h4 className="text-sm font-extrabold text-black mt-2 leading-tight uppercase font-display">{doc.categoryName}</h4>
+                          <span className="text-[10px] text-neutral-400 block font-mono mt-0.5">REF: {doc.id}</span>
+                        </div>
+                        <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase border ${
+                          doc.paid ? 'bg-black text-[#00c060] border-black' : 'bg-[#00c060] text-black border-black'
+                        }`}>
+                          {doc.paid ? 'Official Copy' : 'Draft locked'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-neutral-500 leading-normal line-clamp-2 italic font-serif border-t-2 border-neutral-100 pt-2.5">
+                        "{doc.content.substring(0, 110)}..."
+                      </p>
+                    </div>
+
+                    <div className="border-t border-neutral-150 pt-3 mt-4 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-neutral-450">
+                        📅 {new Date(doc.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </span>
+                      
+                      <button
+                        onClick={() => {
+                          setCurrentDocument(doc);
+                          // Autofill inputs to continue tweaking
+                          setInputs(doc.inputs);
+                          const matchedCat = categories.find(c => c.id === doc.categoryId);
+                          if (matchedCat) setSelectedCategory(matchedCat);
+                          setActiveTab('dashboard');
+                        }}
+                        className="bg-white text-black hover:bg-black hover:text-[#00c060] border-2 border-black font-black text-[11px] uppercase tracking-wider px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                      >
+                        {doc.paid ? 'Open & Reprint' : 'Unlock / Pay Draft'}
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* 🏦 Your Transaction Statement / billing logs */}
+            {currentUser && paymentHistory.length > 0 && (
+              <div className="bg-white border-2 border-black rounded-2xl p-5 mt-8 text-left space-y-4">
+                <h3 className="text-xs font-black text-black uppercase tracking-widest border-b-2 border-black pb-2 flex items-center justify-between">
+                  <span>Billing Statement & Receipt Logs</span>
+                  <span className="text-[9px] text-[#00c060] font-black uppercase">Account security active</span>
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left text-neutral-600">
+                    <thead className="bg-black text-[10px] text-white uppercase font-black border-b border-black">
+                      <tr>
+                        <th className="py-3 px-3">Date</th>
+                        <th className="py-3 px-3">Reference No</th>
+                        <th className="py-3 px-3">Service Details</th>
+                        <th className="py-3 px-3">Checkout Mode</th>
+                        <th className="py-3 px-3 text-right">Amount charged</th>
+                        <th className="py-3 px-3 text-right">Billing Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 font-semibold text-black">
+                      {paymentHistory.map((p) => (
+                        <tr key={p.id} className="hover:bg-neutral-50">
+                          <td className="py-3 px-3 text-neutral-400 font-mono">
+                            {new Date(p.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-3 font-mono text-[11px] font-black">{p.reference}</td>
+                          <td className="py-3 px-3 uppercase font-display text-xs">{p.categoryName}</td>
+                          <td className="py-3 px-3 uppercase text-[10px] font-black text-neutral-400">{p.gateway} Sandbox</td>
+                          <td className="py-3 px-3 text-right font-black text-black">₦{p.amount.toLocaleString()}</td>
+                          <td className="py-3 px-3 text-right">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black border uppercase ${
+                              p.status === 'success' 
+                                ? 'bg-black text-[#00c060] border-black' 
+                                : 'bg-black text-white border-black'
+                            }`}>
+                              {p.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
 
-            {/* TAB CONTENT: ADMIN AREA */}
-            {activeTab === 'admin' && user.role === 'admin' && (
-              <div className="space-y-6">
-                
-                {/* Admin Submenu Tabs selection */}
-                <div className="bg-neutral-900 text-white p-2 rounded-xl flex flex-wrap gap-1 shadow-md">
-                  <button 
-                    onClick={() => setAdminActiveSubTab('stats')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'stats' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    System State Statistics
-                  </button>
-                  <button 
-                    onClick={() => setAdminActiveSubTab('categories')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'categories' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    Manage 15+ Categories
-                  </button>
-                  <button 
-                    onClick={() => setAdminActiveSubTab('research')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'research' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    Upload Sample Templates (Research)
-                  </button>
-                  <button 
-                    onClick={() => setAdminActiveSubTab('prompts')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'prompts' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    AI System Prompts Setting
-                  </button>
-                  <button 
-                    onClick={() => setAdminActiveSubTab('payments')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'payments' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    Global Checkout Audit Log
-                  </button>
-                  <button 
-                    onClick={() => setAdminActiveSubTab('documents')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${adminActiveSubTab === 'documents' ? 'bg-amber-500 text-black' : 'hover:bg-neutral-800'}`}
-                  >
-                    Global Generated Documents Feed
-                  </button>
-                </div>
+          </div>
+        )}
 
-                {/* SUB TAB 1: ADMIN STATS CARD PANEL */}
-                {adminActiveSubTab === 'stats' && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      
-                      <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
-                        <div className="flex justify-between items-center text-gray-400">
-                          <span className="text-[10px] font-extrabold uppercase tracking-widest">Total Global Profits</span>
-                          <DollarSign className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <p className="text-2xl font-black text-neutral-900 mt-2 font-mono">₦{adminStats.totalRevenue.toLocaleString()}</p>
-                        <p className="text-[10px] text-green-600 mt-1 font-bold">100% Verified Real Checkout Hooks</p>
-                      </div>
+        {/* 📚 VIEW 3: RESEARCH MODELS */}
+        {activeTab === 'templates' && (
+          <div className="space-y-6 text-left">
+            <div>
+              <h1 className="text-2xl font-black text-black leading-tight uppercase font-display">Academic Research Models & Layout Templates</h1>
+              <p className="text-xs text-neutral-400 mt-0.5 font-medium">Explore standard structural reference systems across Nigerian institutions, verifying correct alignment, seals, and signoffs.</p>
+            </div>
 
-                      <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
-                        <div className="flex justify-between items-center text-gray-400">
-                          <span className="text-[10px] font-extrabold uppercase tracking-widest">Global Registered Users</span>
-                          <UserIcon className="h-5 w-5 text-[#006e4a]" />
-                        </div>
-                        <p className="text-2xl font-black text-neutral-900 mt-2">{adminStats.totalUsers} Members</p>
-                        <p className="text-[10px] text-gray-500 mt-1">Excludes Administrator nodes</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {templates.map((tpl) => (
+                <div key={tpl.id} className="bg-white rounded-2xl border-2 border-black p-5 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="border-b-2 border-black pb-3 flex items-start justify-between">
+                      <div>
+                        <span className="bg-black text-[#00c060] text-[9px] font-black tracking-widest uppercase px-2.5 py-1 rounded border border-black">
+                          {tpl.categoryId} Model
+                        </span>
+                        <h3 className="text-base font-black text-black mt-2 leading-snug uppercase font-display">{tpl.title}</h3>
+                        <p className="text-[10px] text-gray-500 font-sans mt-0.5 leading-none font-semibold">Verification coordinate: {tpl.organization}</p>
                       </div>
-
-                      <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
-                        <div className="flex justify-between items-center text-gray-400">
-                          <span className="text-[10px] font-extrabold uppercase tracking-widest">Paid Documents Vaulted</span>
-                          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                        </div>
-                        <p className="text-2xl font-black text-neutral-900 mt-2">{adminStats.paidDocuments} Documents</p>
-                        <p className="text-[10px] text-gray-500 mt-1">Watermark-removed official PDFs unlocked</p>
-                      </div>
-
-                      <div className="bg-white border border-gray-150 p-5 rounded-xl shadow-xs">
-                        <div className="flex justify-between items-center text-gray-400">
-                          <span className="text-[10px] font-extrabold uppercase tracking-widest">Document Draft Conversion Rate</span>
-                          <TrendingUp className="h-5 w-5 text-[#006e4a]" />
-                        </div>
-                        <p className="text-2xl font-black text-neutral-900 mt-2">
-                          {adminStats.totalDocuments > 0 
-                            ? `${((adminStats.paidDocuments / adminStats.totalDocuments) * 100).toFixed(1)}%` 
-                            : '0%'}
-                        </p>
-                        <p className="text-[10px] text-gray-500 mt-1">Based on {adminStats.totalDocuments} generated requests</p>
-                      </div>
+                      <BookOpen className="w-5 h-5 text-neutral-400 shrink-0" />
                     </div>
 
-                    {/* Quick baseline instructions */}
-                    <div className="bg-white border border-transparent rounded-xl p-6 shadow-xs border-l-4 border-amber-500">
-                      <h4 className="font-extrabold text-neutral-900 text-sm flex items-center gap-1.5"><Shield className="h-4.5 w-4.5 text-amber-500" /> Admin Fast Evaluation Note</h4>
-                      <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                        To add new document categories for generator forms beautifully, navigate to the <strong>“Manage 15+ Categories”</strong> or <strong>“Upload Sample Templates (Research)”</strong> sub tabs. The server automatically re-reads the database state so your new template formats will reflect immediately for all students on the main dashboard!
+                    {/* Left Pane structured block */}
+                    <div className="bg-neutral-50 p-3.5 rounded-xl text-xs leading-relaxed font-mono text-black border-2 border-dashed border-neutral-300 overflow-x-auto max-h-[190px]">
+                      <pre className="whitespace-pre-wrap font-mono select-all font-semibold">{tpl.rawText}</pre>
+                    </div>
+
+                    <div className="bg-[#00c060]/5 border-2 border-black p-3.5 rounded-xl text-xs text-black font-sans space-y-1">
+                      <b className="text-[10px] text-black uppercase font-black block tracking-wider mb-1 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5 text-[#00c060]" />
+                        <span>Visual Template Layout Analysis</span>
+                      </b>
+                      <p className="whitespace-pre-line leading-relaxed text-[11px] font-medium">{tpl.structureAnalysis}</p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-150 pt-3 mt-4 flex justify-end">
+                    <button
+                      onClick={() => {
+                        const targetCategory = categories.find(c => c.id === tpl.categoryId);
+                        if (targetCategory) {
+                          setSelectedCategory(targetCategory);
+                          setCurrentDocument(null);
+                          // Quick load preloaded values from research text where viable
+                          setActiveTab('dashboard');
+                          confetti({ particleCount: 30 });
+                        }
+                      }}
+                      className="bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black font-black text-xs uppercase tracking-wider px-3.5 py-2 rounded-xl cursor-pointer"
+                    >
+                      Draft from this category
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 🔍 VIEW 4: VERIFY DOCUMENT */}
+        {activeTab === 'verify' && (
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="text-center space-y-2">
+              <ShieldCheck className="w-12 h-12 text-[#00c060] mx-auto animate-bounce" />
+              <h1 className="text-2xl font-black text-black uppercase tracking-wide font-display font-black">Document Authenticity Tracker</h1>
+              <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed font-semibold">
+                Paste unique document transaction reference ID to fetch verified legal credentials, matching signatures, and metadata timestamps directly from database archives.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl border-2 border-black p-6 space-y-4 text-left">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">Enter Document / Reference ID</label>
+                <div className="flex gap-2.5">
+                  <div className="transparent relative flex-grow">
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5" />
+                    <input
+                      type="text"
+                      className="w-full text-sm pl-9 pr-3 py-2.5 border-2 border-black rounded-xl focus:ring-2 focus:ring-[#00c060] focus:border-[#00c060] text-black font-mono font-semibold bg-white"
+                      placeholder="e.g., doc_3oaj81h..."
+                      value={verifyId}
+                      onChange={(e) => setVerifyId(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    onClick={runVerifyTracker}
+                    disabled={verifying}
+                    className="bg-[#00c060] hover:bg-[#00a352] disabled:bg-neutral-200 text-white border-2 border-black font-black text-xs px-5 py-2.5 rounded-xl uppercase tracking-wider shrink-0 cursor-pointer"
+                  >
+                    {verifying ? 'Tracking...' : 'Track'}
+                  </button>
+                </div>
+              </div>
+
+              {verifyError && (
+                <div className="bg-black text-white border-2 border-black p-3.5 rounded-xl text-xs font-semibold flex items-center space-x-2.5">
+                  <AlertCircle className="w-4 h-4 text-[#00c060] shrink-0" />
+                  <span>{verifyError}</span>
+                </div>
+              )}
+
+              {/* Verified Result matching */}
+              {verifiedDoc && (
+                <div className="border-2 border-black bg-neutral-50 p-4 rounded-xl space-y-4">
+                  <div className="border-b-2 border-black pb-2.5 flex items-center justify-between">
+                    <span className="text-[#00c060] font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#00c060] shrink-0 font-black" />
+                      <span>Registry Record Verified Match</span>
+                    </span>
+                    <span className="text-neutral-400 text-[9px] font-mono font-black border border-neutral-300 rounded px-1">MATCH-SECURED</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs leading-loose font-sans text-neutral-800">
+                    <div>
+                      <span className="block text-[10px] text-neutral-400 font-extrabold uppercase leading-none">Document Title:</span>
+                      <span className="block font-black text-black mt-0.5 uppercase">{verifiedDoc.title}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-neutral-400 font-extrabold uppercase leading-none">Issuing Authority:</span>
+                      <span className="block font-black text-black mt-0.5">{verifiedDoc.letterheadName || 'General Docmint Agency'}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-neutral-400 font-extrabold uppercase leading-none">Issued To Name:</span>
+                      <span className="block font-black text-black mt-0.5">{verifiedDoc.inputs.fullName || verifiedDoc.inputs.studentName || verifiedDoc.userName}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-neutral-400 font-extrabold uppercase leading-none">Authored Timestamp:</span>
+                      <span className="block font-bold text-black mt-0.5">{new Date(verifiedDoc.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="col-span-2 border-t-2 border-neutral-200 pt-2.5 mt-1 text-center">
+                      <span className="block text-[10px] text-neutral-400 font-bold uppercase leading-none mb-1.5">Verified Document text snippet</span>
+                      <p className="p-2.5 bg-white border-2 border-dashed border-black rounded-xl font-serif italic text-[11px] max-h-[140px] overflow-y-auto leading-relaxed text-left text-neutral-950 font-medium">
+                        "{verifiedDoc.content.substring(0, 350)}..."
                       </p>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-                {/* SUB TAB 2: MANAGE CATEGORIES (ADD / DELETE) */}
-                {adminActiveSubTab === 'categories' && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    {/* Add Category Form on left */}
-                    <div className="lg:col-span-5 bg-white border border-gray-150 rounded-xl p-5 shadow-xs space-y-4">
-                      <h3 className="font-black text-neutral-900 text-sm">Add New Document Category Format</h3>
-                      
-                      <form onSubmit={handleCreateCategory} className="space-y-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">ID (dashed lowercase)</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="e.g., student-transfer-letter"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                            value={newCatForm.id}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, id: e.target.value })}
-                          />
-                        </div>
+        {/* ⚙️ VIEW 5: ADMIN OPERATIONS HUB */}
+        {activeTab === 'admin' && currentUser?.role === 'admin' && (
+          <div className="space-y-6 text-left animate-fade-in">
+            <div>
+              <h1 className="text-2xl font-black text-black leading-tight uppercase font-display">Admin System Operations Hub</h1>
+              <p className="text-xs text-neutral-400 mt-0.5 font-semibold">Edit systemic Gemini AI core parameters, view general analytics of billing transactions, and explore metrics.</p>
+            </div>
 
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Display Name</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="e.g., Student School Transfer Letter"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                            value={newCatForm.name}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, name: e.target.value })}
-                          />
-                        </div>
+            {/* General Database Stats cards */}
+            {adminStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white border-2 border-black p-4 rounded-2xl text-left">
+                  <span className="block text-[9px] text-[#00c060] font-black uppercase leading-none">Gross Draft Revenue</span>
+                  <span className="block text-xl font-black text-black mt-1.5 font-display">₦{(adminStats.totalRevenueNGN || 0).toLocaleString()}</span>
+                </div>
+                <div className="bg-white border-2 border-black p-4 rounded-2xl text-left">
+                  <span className="block text-[9px] text-neutral-400 font-black uppercase leading-none">Total Papers Processed</span>
+                  <span className="block text-xl font-black text-black mt-1.5 font-display">{(adminStats.totalDocsCount || 0)}</span>
+                </div>
+                <div className="bg-white border-2 border-black p-4 rounded-2xl text-left">
+                  <span className="block text-[9px] text-[#00c060] font-black uppercase leading-none">Unlocked Official Copies</span>
+                  <span className="block text-xl font-black text-black mt-1.5 font-display">{(adminStats.paidDocsCount || 0)}</span>
+                </div>
+                <div className="bg-white border-2 border-black p-4 rounded-2xl text-left">
+                  <span className="block text-[9px] text-neutral-400 font-black uppercase leading-none">User Registry size</span>
+                  <span className="block text-xl font-black text-black mt-1.5 font-display">{(adminStats.totalUsersCount || 0)}</span>
+                </div>
+              </div>
+            )}
 
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Pricing (NGN - Naira)</label>
-                          <input 
-                            type="number" 
-                            required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                            value={newCatForm.priceNGN}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, priceNGN: Number(e.target.value) })}
-                          />
-                        </div>
+            {/* Prompt Tuning Box */}
+            {adminPrompts && (
+              <div className="bg-white border-2 border-black rounded-2xl p-5 space-y-4">
+                <h3 className="text-xs font-black text-black uppercase tracking-widest border-b-2 border-black pb-2 flex items-center justify-between">
+                  <span>Gemini AI Core System Instruction Tuning</span>
+                  <span className="bg-[#00c060] text-white border border-black px-2.5 py-1 rounded text-[8px] font-black">LIVE PARAMETER</span>
+                </h3>
 
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Detailed Description</label>
-                          <textarea 
-                            required 
-                            placeholder="Introduce the target context here..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition min-h-[50px]"
-                            value={newCatForm.description}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, description: e.target.value })}
-                          />
-                        </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-black text-neutral-700 uppercase">Underlying systemInstruction Prompt</label>
+                  <textarea
+                    rows={8}
+                    className="w-full text-xs p-2.5 font-mono border-2 border-black rounded-xl text-black leading-normal focus:ring-2 focus:ring-[#00c060]"
+                    value={adminPrompts.systemInstruction || ''}
+                    onChange={(e) => setAdminPrompts({ ...adminPrompts, systemInstruction: e.target.value })}
+                  />
+                  <p className="text-[10px] text-neutral-400 font-semibold">This string acts as the root system directive for all `/api/documents/generate-preview` operations, establishing strict guidance on formatting and structure limits.</p>
+                </div>
 
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Required Custom Field Attributes (JSON Array)</label>
-                          <textarea 
-                            required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[140px]"
-                            value={newCatForm.requiredFieldsText}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, requiredFieldsText: e.target.value })}
-                          />
-                          <p className="text-[9px] text-gray-400 mt-1">Must be an array of objects specifying key, label, placeholder, and required type.</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Static Text Sample Backup</label>
-                          <textarea 
-                            required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
-                            value={newCatForm.samplePreview}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, samplePreview: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">AI Generative Directive Prompt</label>
-                          <textarea 
-                            required 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
-                            value={newCatForm.aiPromptTemplate}
-                            onChange={(e) => setNewCatForm({ ...newCatForm, aiPromptTemplate: e.target.value })}
-                          />
-                        </div>
-
-                        <button 
-                          type="submit"
-                          className="w-full bg-[#006e4a] hover:bg-[#005c3e] text-white font-extrabold text-xs py-2 px-3 rounded-lg transition"
-                        >
-                          Save New Template Structure
-                        </button>
-                      </form>
-                    </div>
-
-                    {/* Listing on right */}
-                    <div className="lg:col-span-7 bg-white border border-gray-150 rounded-xl p-5 shadow-xs">
-                      <h3 className="font-black text-neutral-900 text-sm mb-4">Active Categories Registry ({categories.length})</h3>
-                      <div className="space-y-3 divide-y divide-gray-100">
-                        {categories.map((cat) => (
-                          <div key={cat.id} className="pt-3 first:pt-0 flex items-start justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-extrabold text-neutral-900 text-sm">{cat.name}</span>
-                                <span className="text-[10px] bg-neutral-100 text-neutral-700 px-1.5 py-0.2 rounded font-mono font-bold">₦{cat.priceNGN}</span>
-                              </div>
-                              <p className="text-xs text-gray-400 mt-1 leading-snug">{cat.description}</p>
-                              <p className="text-[10px] text-[#006e4a] font-bold mt-1 uppercase tracking-wide">Fields Detected: {cat.requiredFields.map(f => f.key).join(' | ')}</p>
-                            </div>
-
-                            <button 
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded-lg transition"
-                              title="Delete Category"
-                            >
-                              <Trash2 className="h-4.5 w-4.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB TAB 3: SAMPLE RESEARCH TEMPLATES MODULE */}
-                {adminActiveSubTab === 'research' && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
-                    {/* Upload / Analysis Panel */}
-                    <div className="lg:col-span-5 bg-white border border-gray-150 p-5 rounded-xl shadow-xs space-y-4">
-                      <div>
-                        <h3 className="font-black text-neutral-900 text-xs flex items-center gap-1.5"><HelpCircle className="h-4 w-4 text-emerald-600" /> AI Document Research Tool</h3>
-                        <p className="text-xs text-gray-500 mt-1">Upload verified raw drafts from reputable educational institutes to benchmark your AI formatting.</p>
-                      </div>
-
-                      <form onSubmit={handleCreateResearchTemplate} className="space-y-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Target Document Category</label>
-                          <select 
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-1.5 text-xs font-bold"
-                            value={newResearchForm.categoryId}
-                            onChange={(e) => setNewResearchForm({ ...newResearchForm, categoryId: e.target.value })}
-                          >
-                            {categories.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Model Heading / Title</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="e.g., University of Harcourt Grade-A SIWES"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                            value={newResearchForm.title}
-                            onChange={(e) => setNewResearchForm({ ...newResearchForm, title: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Issuing Organization / Source</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="e.g., Shell Petroleum, Warri"
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#006e4a] transition"
-                            value={newResearchForm.organization}
-                            onChange={(e) => setNewResearchForm({ ...newResearchForm, organization: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Sample Raw Document Text Content</label>
-                          <textarea 
-                            required 
-                            placeholder="Enter the full text of the letter here..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[140px]"
-                            value={newResearchForm.rawText}
-                            onChange={(e) => setNewResearchForm({ ...newResearchForm, rawText: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-neutral-600 mb-1">Format/Structural analysis report</label>
-                          <textarea 
-                            required 
-                            placeholder="Specify paragraphs ordering, double lines usage, address alignments..."
-                            className="w-full bg-[#fcfcfc] border border-gray-200 rounded-lg p-2 font-mono text-[10px] outline-none focus:border-[#006e4a] transition min-h-[80px]"
-                            value={newResearchForm.structureAnalysis}
-                            onChange={(e) => setNewResearchForm({ ...newResearchForm, structureAnalysis: e.target.value })}
-                          />
-                        </div>
-
-                        <button 
-                          type="submit"
-                          className="w-full bg-neutral-900 hover:bg-black text-white font-black text-xs py-2 px-3 rounded-lg transition"
-                        >
-                          Analyze and Upload to Base-Data
-                        </button>
-                      </form>
-                    </div>
-
-                    {/* Listing of Sample Research models on right */}
-                    <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-gray-150 space-y-4">
-                      <div>
-                        <h3 className="font-black text-neutral-900 text-sm">Analyzed Institutional Document Benchmarks</h3>
-                        <p className="text-xs text-gray-500">The templates listed here are processed dynamically by our AI engine to match administrative formatting standards.</p>
-                      </div>
-
-                      <div className="space-y-4 divide-y divide-gray-100">
-                        {researchTemplates.map((t) => (
-                          <div key={t.id} className="pt-4 first:pt-0 space-y-2">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-extrabold text-neutral-900 text-sm">{t.title}</h4>
-                                <span className="text-[10px] text-gray-400 block uppercase">Source: {t.organization}</span>
-                              </div>
-                              <button 
-                                onClick={() => handleDeleteResearchTemplate(t.id)}
-                                className="text-red-500 hover:text-red-700 hover:bg-neutral-50 p-1 rounded-lg transition"
-                                title="Remove Baseline Sample"
-                              >
-                                <Trash2 className="h-4.5 w-4.5" />
-                              </button>
-                            </div>
-
-                            <div className="bg-neutral-50 rounded-lg p-3 border border-gray-200">
-                              <span className="text-[9px] font-extrabold text-gray-400 tracking-wider block uppercase mb-1">Benchmarked Text Structure:</span>
-                              <p className="text-[10px] leading-relaxed text-gray-600 whitespace-pre-wrap">{t.rawText}</p>
-                            </div>
-
-                            <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-100 text-[#006e4a]">
-                              <span className="text-[9px] font-extrabold uppercase block tracking-wider mb-1">Verified Structural Parsing Analysis:</span>
-                              <p className="text-[10px] leading-relaxed whitespace-pre-wrap font-mono">{t.structureAnalysis}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB TAB 4: SYSTEM PROMPT SETTINGS */}
-                {adminActiveSubTab === 'prompts' && (
-                  <div className="bg-white border text-neutral-800 border-gray-150 p-6 rounded-xl shadow-xs space-y-6">
-                    <div>
-                      <h3 className="font-black text-neutral-900 text-base">Fine-Tune AI Generator Prompts</h3>
-                      <p className="text-xs text-gray-500">Globally modulate the Gemini system instructions and guidelines that govern the vocabulary of output documents.</p>
-                    </div>
-
-                    {promptMessage && (
-                      <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
-                        <Check className="h-4 w-4 text-emerald-600" />
-                        <strong>{promptMessage}</strong>
-                      </div>
-                    )}
-
-                    <form onSubmit={handleUpdatePrompts} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-neutral-700 uppercase mb-1.5">Global Gemini systemInstruction</label>
-                        <textarea 
-                          required 
-                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-[#006e4a] transition min-h-[140px]"
-                          value={systemInstructionState}
-                          onChange={(e) => setSystemInstructionState(e.target.value)}
-                        />
-                        <p className="text-[10px] text-gray-400 mt-1">This acts as the strict system pre-prompt governing core compliance, professional administrative metrics, and grammatical rules.</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-neutral-700 uppercase mb-1.5">PDF and Letterhead Guidelines</label>
-                        <textarea 
-                          required 
-                          className="w-full bg-[#fdfdfd] border border-gray-200 rounded-lg p-3 font-mono text-xs outline-none focus:border-[#006e4a] transition min-h-[80px]"
-                          value={pdfLetterheadState}
-                          onChange={(e) => setPdfLetterheadState(e.target.value)}
-                        />
-                      </div>
-
-                      <button 
-                        type="submit"
-                        className="bg-neutral-900 hover:bg-black text-white text-xs font-black py-2 px-6 rounded-lg transition"
-                      >
-                        Overwrite AI Model Configurations
-                      </button>
-                    </form>
-                  </div>
-                )}
-
-                {/* SUB TAB 5: ADMIN PAYMENTS AUDIT TRAIL */}
-                {adminActiveSubTab === 'payments' && (
-                  <div className="bg-white border rounded-xl shadow-xs overflow-hidden">
-                    <div className="p-5 border-b border-gray-150">
-                      <h3 className="font-black text-neutral-900 text-base">Global Transaction Audit Grid</h3>
-                      <p className="text-xs text-gray-500">Review all global customer checkout sessions across platforms and gateways audited.</p>
-                    </div>
-                    {payments.length === 0 ? (
-                      <div className="text-center py-12">
-                        <DollarSign className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-xs text-gray-500">No payments verified yet.</p>
-                      </div>
-                    ) : (
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-neutral-50 text-[10px] text-gray-500 font-extrabold uppercase border-b border-gray-150 tracking-wider">
-                            <th className="p-4">Customer Name</th>
-                            <th className="p-4">Paid For Category</th>
-                            <th className="p-4">Gateway Used</th>
-                            <th className="p-4">Reference Code</th>
-                            <th className="p-4">Amount NGN</th>
-                            <th className="p-4">Status Token</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-                          {payments.map((p) => (
-                            <tr key={p.id} className="hover:bg-neutral-50">
-                              <td className="p-4">
-                                <span className="font-bold text-neutral-900">{p.userName}</span>
-                                <span className="text-[10px] text-gray-400 block">UID ID: {p.userId}</span>
-                              </td>
-                              <td className="p-4 font-bold text-gray-600">{p.categoryName}</td>
-                              <td className="p-4 capitalize">{p.gateway}</td>
-                              <td className="p-4 font-mono text-gray-500">{p.reference}</td>
-                              <td className="p-4 font-extrabold text-neutral-900">₦{p.amount.toLocaleString()}</td>
-                              <td className="p-4">
-                                <span className="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                                  {p.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
-
-                {/* SUB TAB 6: GLOBAL GENERATED DOCUMENTS FEED */}
-                {adminActiveSubTab === 'documents' && (
-                  <div className="bg-white border rounded-xl shadow-xs overflow-hidden">
-                    <div className="p-5 border-b border-gray-150">
-                      <h3 className="font-black text-neutral-900 text-base">Global Administrative Generations Registry</h3>
-                      <p className="text-xs text-gray-500 font-medium">Verify structural compliance, watermarks parameters, and signature lines of all created texts.</p>
-                    </div>
-
-                    {documents.length === 0 ? (
-                      <div className="text-center py-12">
-                        <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-xs text-gray-500">No documents drafted globally yet.</p>
-                      </div>
-                    ) : (
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-neutral-50 text-[10px] text-gray-500 font-extrabold uppercase border-b border-gray-150 tracking-wider">
-                            <th className="p-4">Author Profile</th>
-                            <th className="p-4">Document Type</th>
-                            <th className="p-4">Pricing Status</th>
-                            <th className="p-4">Cryptographic Hash ID</th>
-                            <th className="p-4">Date Issued</th>
-                            <th className="p-4 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-                          {documents.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-neutral-50">
-                              <td className="p-4">
-                                <span className="font-bold text-neutral-900">{doc.userName}</span>
-                                <span className="text-[10px] text-gray-400 block font-mono">UID: {doc.userId}</span>
-                              </td>
-                              <td className="p-4">
-                                <span className="font-semibold text-gray-800">{doc.categoryName}</span>
-                              </td>
-                              <td className="p-4">
-                                {doc.paid ? (
-                                  <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 font-bold rounded">Paid Unlocked</span>
-                                ) : (
-                                  <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 font-bold rounded">Sandbox Preview</span>
-                                )}
-                              </td>
-                              <td className="p-4 font-mono text-gray-400">{doc.id}</td>
-                              <td className="p-4 text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</td>
-                              <td className="p-4 text-right">
-                                <button 
-                                  onClick={() => handlePrintDocument(doc)}
-                                  className="text-[#006e4a] hover:text-[#005c3e] font-bold"
-                                >
-                                  View / Print Draft
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
+                <div className="flex justify-end pt-2 border-t-2 border-neutral-100">
+                  <button
+                    onClick={handleSavePrompts}
+                    disabled={savingPrompts}
+                    className="bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black font-black text-xs px-5 py-2.5 rounded-xl tracking-wider uppercase cursor-pointer"
+                  >
+                    {savingPrompts ? 'Saving...' : 'Sync prompt instruct to Firestore'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
+
       </main>
 
-      {/* MOCK TRANSACTION SUCCESS CHECKOUT POPUP MODAL (Standard UI pattern for Nigerian payment hubs simulation) */}
-      {paymentModalOpen && paymentInitData && (
-        <div className="fixed inset-0 bg-neutral-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-150 text-neutral-800 space-y-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-xs font-black uppercase text-gray-500 tracking-widest">{selectedGateway} Payment Gateway</span>
-              </div>
-              <button 
-                onClick={() => setPaymentModalOpen(false)}
-                className="text-gray-400 hover:text-gray-900"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* FOOTER */}
+      <footer className="bg-black text-[#6b7280] border-t-2 border-black py-8 text-center font-sans tracking-tight text-[11px] mt-12 print:hidden select-none">
+        <div className="max-w-7xl mx-auto px-4">
+          <p className="font-black text-[#00c060] uppercase tracking-widest text-xs shrink-0">DocMint Draft System &copy; 2026</p>
+          <p className="mt-1.5 text-neutral-400 font-medium">Designed by administrative specialists for academic reference letterheads, state origin liasons, and certified attesters.</p>
+        </div>
+      </footer>
+
+      {/* 🔐 MODAL: ACCESS CONSOLE (LOGIN / SIGNUP) */}
+      {authModalOpen && (
+        <div className="fixed inset-0 bg-neutral-900/65 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border-2 border-black max-w-md w-full p-6 space-y-5 animate-fade-in relative text-left">
+            <button 
+              onClick={() => setAuthModalOpen(false)}
+              className="absolute right-4 top-4 p-1.5 rounded-full text-black hover:bg-neutral-100 border-2 border-transparent hover:border-black transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-black text-black uppercase font-display">DocMint Account Access</h2>
+              <p className="text-xs text-neutral-400 font-medium">Choose simulated user profile level to instantly seed sandboxed demo credits.</p>
             </div>
 
-            <div className="text-center space-y-2">
-              <p className="text-xs text-gray-400 uppercase tracking-widest">Transaction Amount</p>
-              <p className="text-3xl font-black text-neutral-940 text-neutral-900 font-mono">₦{paymentInitData.amount.toLocaleString()}</p>
-              <div className="bg-slate-50 p-2 rounded-lg text-[11px] font-mono text-gray-500 flex justify-between">
-                <span>Ref:</span>
-                <span>{paymentInitData.reference}</span>
-              </div>
-              <p className="text-[10px] text-gray-400 leading-normal">
-                Connecting secure merchant account for: <br/><strong>{user?.email}</strong>
-              </p>
-            </div>
-
-            {/* Real Checkout Box (if payload has accessCode or configured keys) */}
-            {paymentInitData.accessCode && (
-              <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl space-y-2 text-emerald-900 text-left">
-                <h5 className="text-[11px] font-extrabold uppercase tracking-wide flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
-                  Real Paystack Gateway Ready
-                </h5>
-                <p className="text-[11px] leading-normal text-emerald-800">
-                  Secure real-time payment session is initialized on Paystack's verified live ledger.
-                </p>
-                <div className="flex flex-col gap-2 pt-1 font-sans">
-                  <button
-                    type="button"
-                    onClick={() => payWithPaystackInline(paymentInitData)}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 rounded-lg font-black text-xs text-center transition select-none cursor-pointer"
-                  >
-                    🚀 Trigger Interactive Overlay
-                  </button>
-                  {paymentInitData.authorizationUrl && (
-                    <a
-                      href={paymentInitData.authorizationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-neutral-900 text-white py-2 px-3 rounded-lg font-bold text-xs text-center hover:bg-neutral-800 transition block select-none cursor-pointer"
-                    >
-                      🔗 Direct Redirection Page
-                    </a>
-                  )}
-                </div>
+            {authError && (
+              <div className="bg-black text-white border-2 border-black p-2.5 rounded-xl text-xs leading-normal flex items-center space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-[#00c060] shrink-0" />
+                <span>{authError}</span>
               </div>
             )}
 
-            {/* Simulated Checkout Credentials Box */}
-            <div className={`bg-blue-50 border border-blue-150 p-3.5 rounded-xl space-y-1.5 text-blue-900 ${paymentInitData.accessCode ? 'opacity-85' : ''}`}>
-              <h5 className="text-[11px] font-extrabold uppercase tracking-wide flex items-center gap-1">
-                <CreditCard className="h-3.5 w-3.5 text-blue-600" />
-                Simulated Sandbox Payment Card
-              </h5>
-              <p className="text-[11px] font-medium leading-relaxed">
-                Since this is running in evaluation mode, click <strong>"Simulate Successful Pay"</strong> below to instantly clear payment state and enable permanent PDF document printing.
-              </p>
+            <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-4">
+              {isRegistering && (
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-black text-black uppercase tracking-wider">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full text-xs p-2.5 border-2 border-black rounded-xl text-black bg-white focus:outline-none focus:ring-1 focus:ring-[#00c060]"
+                    placeholder="e.g., Odebiye Aduragbemi Adekunle"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-black uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  className="w-full text-xs p-2.5 border-2 border-black rounded-xl text-black bg-white focus:outline-none focus:ring-1 focus:ring-[#00c060]"
+                  placeholder="e.g., student@edudocs.ai"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                />
+              </div>
+
+              {isRegistering && (
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-black text-black uppercase tracking-wider">Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full text-xs p-2.5 border-2 border-black rounded-xl text-black bg-white focus:outline-none focus:ring-1 focus:ring-[#00c060]"
+                    placeholder="e.g., 08123456789"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-black uppercase tracking-wider">Password</label>
+                <input
+                  type="password"
+                  required
+                  className="w-full text-xs p-2.5 border-2 border-black rounded-xl text-black bg-white focus:outline-none focus:ring-1 focus:ring-[#00c060]"
+                  placeholder="Password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                />
+              </div>
+
+              {isRegistering && (
+                <div className="grid grid-cols-2 gap-3 pb-2 border-t-2 border-black pt-2">
+                  <div className="space-y-1 text-left">
+                    <label className="block text-[10px] font-black text-black uppercase">Profile Level</label>
+                    <select
+                      className="w-full text-xs p-2 border-2 border-black rounded-xl text-black bg-white"
+                      value={userTypeInput}
+                      onChange={(e: any) => setUserTypeInput(e.target.value)}
+                    >
+                      <option value="student">Student Attestation</option>
+                      <option value="faculty">Faculty Endorsement</option>
+                      <option value="organization">Organization rep</option>
+                      <option value="general">General indigen</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 text-left">
+                    <label className="block text-[10px] font-black text-black uppercase">Institution Name</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2 border-2 border-black rounded-xl text-black"
+                      placeholder="e.g., FUT Minna"
+                      value={institutionInput}
+                      onChange={(e) => setInstitutionInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1 text-left">
+                    <label className="block text-[10px] font-black text-black uppercase">Department</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2 border-2 border-black rounded-xl text-black"
+                      placeholder="e.g., Computer Science"
+                      value={departmentInput}
+                      onChange={(e) => setDepartmentInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1 text-left">
+                    <label className="block text-[10px] font-black text-black uppercase">Matric / ID No</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2 border-2 border-black rounded-xl text-black"
+                      placeholder="e.g., ENG/2021/045"
+                      value={matricNoInput}
+                      onChange={(e) => setMatricNoInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                {isRegistering ? (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Create Sandboxed Account</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Access Console Panel</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="border-t-2 border-black pt-3 text-center">
+              <button
+                onClick={() => {
+                  setAuthError('');
+                  setIsRegistering(!isRegistering);
+                }}
+                className="text-xs text-black font-black hover:underline uppercase tracking-wide"
+              >
+                {isRegistering ? 'Already registered? Log in here' : 'New to Docmint? Register here'}
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <button 
-                onClick={() => completePaymentSimulatedResult('failed')}
-                disabled={paymentSimulating}
-                className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 py-2 rounded-lg font-bold text-xs cursor-pointer text-center select-none transition"
-              >
-                Cancel payment
-              </button>
-              <button 
-                onClick={() => completePaymentSimulatedResult('success')}
-                disabled={paymentSimulating}
-                className="bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-black text-xs cursor-pointer text-center select-none shadow-sm transition"
-              >
-                {paymentSimulating ? 'Processing...' : 'Simulate Successful Pay'}
-              </button>
+            {/* Quick preloaded Accounts for AI Studio previewing speed */}
+            <div className="bg-neutral-50 p-3.5 rounded-xl border-2 border-black text-left mt-2 space-y-2">
+              <span className="block text-[10px] text-neutral-450 font-black uppercase tracking-wider text-center leading-none">
+                🚀 AI Studio Quick Sandbox Logins
+              </span>
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
+                <button
+                  onClick={() => handleDemoAccess('student@edudocs.ai')}
+                  className="bg-white border-2 border-black rounded-lg p-1 hover:bg-[#00c060] hover:text-white text-black block transition-all font-black cursor-pointer"
+                >
+                  🏫 Student
+                </button>
+                <button
+                  onClick={() => handleDemoAccess('lecturer@edudocs.ai')}
+                  className="bg-white border-2 border-black rounded-lg p-1 hover:bg-[#00c060] hover:text-white text-black block transition-all font-black cursor-pointer"
+                >
+                  🎓 Faculty
+                </button>
+                <button
+                  onClick={() => handleDemoAccess('admin@edudocs.ai')}
+                  className="bg-black text-[#00c060] border-2 border-black rounded-lg p-1 hover:bg-neutral-800 block transition-all font-black cursor-pointer"
+                >
+                  ⚙️ Admin
+                </button>
+              </div>
             </div>
 
-            <p className="text-[9px] text-center text-gray-400 leading-normal">
-              Protected by standard TLS encryption. DocMint does not log your credit card credentials.
-            </p>
           </div>
         </div>
       )}
 
-      {/* Modern Compact Site Footer */}
-      <footer className="bg-white border-t border-gray-150 py-6 mt-12 text-center text-xs text-gray-400">
-        <div className="max-w-7xl mx-auto px-4 space-y-2">
-          <p className="font-medium text-neutral-600">DocMint © 2026 Admin Portal. All rights reserved.</p>
-          <div className="flex justify-center gap-4 text-[11px] text-gray-500">
-            <span>Non-Forgery Verified</span>
-            <span>•</span>
-            <span>Cryptographic QR Validation</span>
-            <span>•</span>
-            <span>Paystack / Flutterwave / Monnify Integrated</span>
+      {/* 💳 MODAL: BILLING & CHECKOUT (INVOICE LIGHTBOX) */}
+      {paymentModalOpen && (
+        <div className="fixed inset-0 bg-neutral-900/65 backdrop-blur-xs z-50 flex items-center justify-center p-4 text-left">
+          <div className="bg-white rounded-2xl border-2 border-black max-w-sm w-full p-6 space-y-5 animate-fade-in relative animate-fade-in">
+            <button 
+              onClick={() => setPaymentModalOpen(false)}
+              className="absolute right-4 top-4 p-1.5 rounded-full text-black hover:bg-neutral-100 border-2 border-transparent hover:border-black transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <Lock className="w-10 h-10 text-[#00c060] mx-auto mb-2" />
+              <h2 className="text-xl font-black text-black uppercase font-display">Secure Invoicing</h2>
+              <p className="text-xs text-neutral-400 font-semibold leading-relaxed">Unlock official copy PDF, completely stripped of draft blur watermarks.</p>
+            </div>
+
+            {currentDocument && selectedCategory && (
+              <div className="bg-neutral-50 p-4 border-2 border-black rounded-xl space-y-3 font-sans text-xs text-black leading-loose">
+                <div className="flex justify-between font-black border-b-2 border-black pb-1.5 leading-none">
+                  <span>Document Draft:</span>
+                  <span className="text-neutral-900 uppercase font-display">{selectedCategory.id}</span>
+                </div>
+                <div className="flex justify-between leading-none mt-1 font-semibold">
+                  <span>Draft Title:</span>
+                  <span className="font-extrabold truncate max-w-[150px]">{currentDocument.title}</span>
+                </div>
+                <div className="flex justify-between font-black text-black leading-none mt-1 pt-1.5 border-t-2 border-dashed border-neutral-300">
+                  <span>Locking Fee:</span>
+                  <span className="text-[#00c060]">₦{selectedCategory.priceNGN.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Wallet vs card select */}
+            <div className="space-y-2.5">
+              <h4 className="text-[10px] font-black uppercase text-neutral-400 tracking-wider">Select Checkout Gateway</h4>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <button
+                  onClick={() => setSelectedGateway('paystack')}
+                  className={`border-2 border-black rounded-xl p-3 text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+                    selectedGateway === 'paystack' 
+                      ? 'bg-[#00c060] text-white' 
+                      : 'bg-white hover:bg-neutral-50 text-neutral-500'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  <span>Card / Paystack</span>
+                </button>
+
+                <button
+                  onClick={handleWalletPay}
+                  disabled={walletPaying}
+                  className="border-2 border-black rounded-xl p-3 text-xs font-black uppercase tracking-widest flex flex-col items-center justify-center space-y-1.5 bg-black text-white hover:text-[#00c060] transition-all cursor-pointer"
+                >
+                  {walletPaying ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#00c060]" />
+                  ) : (
+                    <Coins className="w-5 h-5 text-[#00c060] animate-pulse" />
+                  )}
+                  <span>Pay with Wallet</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={initialTransactionCheckout}
+              className="w-full bg-[#00c060] hover:bg-[#00a352] text-white border-2 border-black font-black text-xs uppercase py-3 rounded-xl tracking-wider cursor-pointer"
+            >
+              Verify & Initial Card Checkout
+            </button>
           </div>
         </div>
-      </footer>
+      )}
+
+      {/* 📟 Simulated Paystack inline sandbox popup */}
+      {simulatedCheckoutOpen && (
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs z-[60] flex items-center justify-center p-4 text-left">
+          <div className="bg-[#0c0c0c] text-white rounded-2xl border-2 border-white shadow-2xl max-w-sm w-full p-6 space-y-5 animate-fade-in relative z-50">
+            <button 
+              onClick={() => setSimulatedCheckoutOpen(false)}
+              className="absolute right-4 top-4 p-1 rounded-full text-neutral-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <div className="bg-[#00c060]/10 text-[#00c060] p-2.5 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2 border border-[#00c060]/30">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <h2 className="text-md font-black text-white tracking-tight uppercase flex items-center justify-center gap-1 font-display">
+                <span>Paystack Sandboxed Checkout</span>
+              </h2>
+              <p className="text-[10px] text-neutral-400 font-mono tracking-wider text-center">SECURE SANDBOX PORTAL &bull; REF: {simulatedRef}</p>
+            </div>
+
+            <div className="bg-[#161616] border border-neutral-800 p-3 rounded-xl text-[11px] leading-relaxed font-mono text-neutral-300">
+              <div className="flex justify-between">
+                <span>Billing merchant:</span>
+                <span className="text-white font-bold">DocMint Ltd</span>
+              </div>
+              <div className="flex justify-between border-t border-neutral-800 pt-1.5 mt-1.5 font-black text-[#00c060] text-xs">
+                <span>Amount:</span>
+                <span>₦{selectedCategory?.priceNGN.toLocaleString()} NGN</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 font-sans text-xs">
+              <div className="space-y-1">
+                <label className="block text-[10px] uppercase text-neutral-400 font-bold leading-none">Dummy Credit/Debit card number</label>
+                <input
+                  type="text"
+                  maxLength={19}
+                  className="w-full bg-[#1e1e1e] border border-neutral-800 rounded-lg p-2 text-sm text-neutral-200 font-mono placeholder-neutral-600 focus:outline-none focus:border-[#00c060]"
+                  placeholder="4000 1234 5678 9010"
+                  value={simulatedCardNumber}
+                  onChange={(e) => setSimulatedCardNumber(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[10px] uppercase text-neutral-400 font-bold leading-none">Card expiry date</label>
+                  <input
+                    type="text"
+                    maxLength={5}
+                    placeholder="12/28"
+                    className="w-full bg-[#1e1e1e] border border-neutral-800 rounded-lg p-2 text-sm text-neutral-200 font-mono placeholder-neutral-600 focus:outline-none focus:border-[#00c060]"
+                    value={simulatedCardExpiry}
+                    onChange={(e) => setSimulatedCardExpiry(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[10px] uppercase text-neutral-400 font-bold leading-none">Card CVV / Exp</label>
+                  <input
+                    type="password"
+                    maxLength={3}
+                    placeholder="***"
+                    className="w-full bg-[#1e1e1e] border border-neutral-800 rounded-lg p-2 text-sm text-neutral-200 font-mono placeholder-neutral-600 focus:outline-none focus:border-[#00c060]"
+                    value={simulatedCardCvv}
+                    onChange={(e) => setSimulatedCardCvv(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#1a1408] border border-yellow-500/10 text-yellow-500 p-2 text-[10px] rounded-lg italic">
+                ℹ️ Sandbox notice: Simulate checkout success/failure on other cards using sandbox keys.
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-neutral-850">
+                <button
+                  onClick={() => handleFinishCreditSimulator('success')}
+                  disabled={simulatingPayment}
+                  className="bg-[#00c060] hover:bg-[#00a352] text-white font-black py-2.5 rounded-xl text-xs uppercase cursor-pointer"
+                >
+                  Confirm Success
+                </button>
+                <button
+                  onClick={() => handleFinishCreditSimulator('failed')}
+                  disabled={simulatingPayment}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold py-2.5 rounded-xl text-xs uppercase cursor-pointer"
+                >
+                  Decline (Cancel)
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

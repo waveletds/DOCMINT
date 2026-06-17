@@ -1,6 +1,6 @@
 {
-  "name": "DocMint",
-  "description": "Premium AI-powered professional and academic document drafting engine with secure printable QR tags.",
+  "name": "Nigerian States Info & Certificate Portal",
+  "description": "Comprehensive index representation of Nigerian geopolitical states with integrated Paystack payment and secure certificate issuance.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
